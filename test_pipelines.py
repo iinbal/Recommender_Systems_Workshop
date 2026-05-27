@@ -28,6 +28,7 @@ from pipeline import (
 )
 import cf_pipeline as cf
 import cb_pipeline as cb
+from recommender import recommend, CF_THRESHOLD
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -694,3 +695,110 @@ class TestBuildUltimateColdStartProfile:
         for beer_id, expected_count in expected_counts.items():
             row = result[result["beer_id"] == beer_id]
             assert row["total_reviews_count"].values[0] == expected_count
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COLD-START — popularity_recommend()
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestPopularityRecommend:
+    """Test the popularity fallback used for brand-new users."""
+
+    def test_returns_series(self):
+        assert isinstance(cb.popularity_recommend(n=5), pd.Series)
+
+    def test_sorted_descending(self):
+        result = cb.popularity_recommend(n=5)
+        assert list(result.values) == sorted(result.values, reverse=True)
+
+    def test_returns_at_most_n_items(self):
+        assert len(cb.popularity_recommend(n=3)) <= 3
+
+    def test_scores_are_positive(self):
+        result = cb.popularity_recommend(n=5)
+        assert (result >= 0).all()
+
+    def test_style_filter_returns_only_matching_style(self):
+        result = cb.popularity_recommend(n=10, style="IPA")
+        for beer_id in result.index:
+            style = cb.item_profiles.loc[
+                cb.item_profiles["beer_id"] == beer_id, "beer_style"
+            ].values[0]
+            assert style.lower() == "ipa"
+
+    def test_style_filter_case_insensitive(self):
+        lower = cb.popularity_recommend(n=5, style="ipa")
+        upper = cb.popularity_recommend(n=5, style="IPA")
+        pd.testing.assert_series_equal(lower, upper)
+
+    def test_unknown_style_falls_back_to_full_catalog(self):
+        result = cb.popularity_recommend(n=5, style="NonExistentStyleXYZ")
+        assert len(result) > 0
+
+    def test_no_style_uses_full_catalog(self):
+        result = cb.popularity_recommend(n=10)
+        assert len(result) == min(10, len(cb.item_profiles))
+
+    def test_series_name_is_popularity_score(self):
+        assert cb.popularity_recommend(n=3).name == "popularity_score"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COLD-START — recommend() router
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestRecommendRouter:
+    """Test the three-tier routing logic."""
+
+    def test_brand_new_user_returns_series(self):
+        result = recommend("brand_new_user_xyz_000", n=5)
+        assert isinstance(result, pd.Series)
+
+    def test_brand_new_user_gets_non_empty_results(self):
+        result = recommend("brand_new_user_xyz_000", n=5)
+        assert len(result) > 0
+
+    def test_brand_new_user_with_style_preference(self):
+        result = recommend("brand_new_user_xyz_000", n=5, preferred_style="IPA")
+        assert isinstance(result, pd.Series)
+        assert len(result) > 0
+
+    def test_existing_user_with_few_ratings_gets_cb(self):
+        # Demo users have 2 ratings each — below CF_THRESHOLD → CB tier
+        user = cb.train_df["username"].iloc[0]
+        result = recommend(user, n=3)
+        assert isinstance(result, pd.Series)
+        assert len(result) > 0
+
+    def test_existing_user_no_overlap_with_already_rated(self):
+        user = cb.train_df["username"].iloc[0]
+        already_rated = set(cb.train_df[cb.train_df["username"] == user]["beer_id"])
+        result = recommend(user, n=10)
+        assert len(set(result.index) & already_rated) == 0
+
+    def test_result_sorted_descending(self):
+        result = recommend("brand_new_user_xyz_000", n=5)
+        assert list(result.values) == sorted(result.values, reverse=True)
+
+    def test_hybrid_tier_falls_back_gracefully(self, monkeypatch):
+        # Lower the threshold to 2 so we can trigger the hybrid tier with demo
+        # data (5 beers total). Give power_user 2 ratings, leaving 3 unrated.
+        import recommender
+        monkeypatch.setattr(recommender, "CF_THRESHOLD", 2)
+        extra = pd.DataFrame({
+            "username": ["power_user", "power_user"],
+            "beer_id": list(cb.item_profiles["beer_id"])[:2],
+            "rating_overall": [4.5, 4.0],
+        })
+        monkeypatch.setattr(cb, "train_df", pd.concat([cb.train_df, extra], ignore_index=True))
+        # power_user not in CF rating matrix → hybrid tier catches the error and
+        # falls back to CB, which still has 3 unrated beers to recommend
+        result = recommend("power_user", n=3)
+        assert isinstance(result, pd.Series)
+        assert len(result) > 0
+
+    def test_router_never_crashes_for_any_user(self):
+        users = ["completely_new_user", cb.train_df["username"].iloc[0], "another_unknown"]
+        for user in users:
+            result = recommend(user, n=3)
+            assert isinstance(result, pd.Series)

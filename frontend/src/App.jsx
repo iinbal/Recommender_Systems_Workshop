@@ -1,21 +1,44 @@
 import React, { useState } from 'react';
 import LandingPage from './components/LandingPage';
+import OnboardingPage from './components/OnboardingPage';
 import RecommenderDashboard from './components/Dashboard';
 import mockData from './dummy_ui_data.json';
 
-function App() {
-  // false = Landing Page, true = Dashboard
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+// page states: 'landing' | 'onboarding' | 'dashboard'
 
-  return (
-    <div>
-      {!isLoggedIn ? (
-        <LandingPage onLogin={() => setIsLoggedIn(true)} />
-      ) : (
-        <RecommenderDashboard data={mockData} onLogout={() => setIsLoggedIn(false)} />
-      )}
-    </div>
-  );
+function App() {
+  const [page, setPage] = useState('landing');
+  const [preferredStyles, setPreferredStyles] = useState([]);
+
+  const handleLogin = () => setPage('dashboard');
+
+  const handleSignUp = () => setPage('onboarding');
+
+  const handleOnboardingComplete = (styles) => {
+    setPreferredStyles(styles);
+    setPage('dashboard');
+  };
+
+  const handleLogout = () => {
+    setPreferredStyles([]);
+    setPage('landing');
+  };
+
+  if (page === 'onboarding') {
+    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+  }
+
+  if (page === 'dashboard') {
+    return (
+      <RecommenderDashboard
+        data={mockData}
+        preferredStyles={preferredStyles}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  return <LandingPage onLogin={handleLogin} onSignUp={handleSignUp} />;
 }
 
 export default App;

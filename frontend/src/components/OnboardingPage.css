@@ -1,0 +1,142 @@
+.onboarding-container {
+  min-height: 100vh;
+  background-color: #141414;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 2rem 4rem;
+  color: #fff;
+  font-family: sans-serif;
+}
+
+.onboarding-logo {
+  width: 220px;
+  margin-bottom: 2.5rem;
+}
+
+.onboarding-title {
+  font-size: 2.2rem;
+  font-weight: bold;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.onboarding-subtitle {
+  font-size: 1.1rem;
+  color: #aaa;
+  text-align: center;
+  max-width: 520px;
+  line-height: 1.5;
+  margin: 0 0 2.5rem;
+}
+
+/* ── Style selection grid ── */
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  max-width: 860px;
+  width: 100%;
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 700px) {
+  .style-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.style-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.4rem 1rem;
+  background-color: #1e1e1e;
+  border: 2px solid #333;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, transform 0.1s;
+  color: #fff;
+}
+
+.style-card:hover {
+  border-color: #E67E22;
+  background-color: #252525;
+  transform: translateY(-2px);
+}
+
+.style-card.selected {
+  border-color: #E67E22;
+  background-color: rgba(230, 126, 34, 0.12);
+}
+
+.style-emoji {
+  font-size: 2rem;
+}
+
+.style-label {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.style-desc {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.style-check {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.7rem;
+  font-size: 0.9rem;
+  color: #E67E22;
+  font-weight: bold;
+}
+
+/* ── Action buttons ── */
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 320px;
+}
+
+.btn-primary {
+  background-color: #E67E22;
+  color: #fff;
+  border: none;
+  padding: 1rem;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  width: 100%;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-skip {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.25rem;
+}
+
+.btn-skip:hover {
+  color: #ccc;
+}

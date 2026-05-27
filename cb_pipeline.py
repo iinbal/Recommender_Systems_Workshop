@@ -280,6 +280,42 @@ def get_recommendation_details(scores: pd.Series) -> pd.DataFrame:
     return details.sort_values("cb_score", ascending=False)
 
 
+def popularity_recommend(n: int = 10, style: str = None) -> pd.Series:
+    """
+    Return top-N beers by popularity score — used for cold-start (new) users.
+
+    Popularity score = avg_overall_rating × log(1 + total_reviews_count).
+    This rewards quality while dampening the outsized effect of review volume.
+
+    Parameters
+    ----------
+    n     : number of beers to return
+    style : optional beer style filter (case-insensitive, e.g. "IPA", "Stout").
+            Falls back to the full catalog if no beers match the style.
+
+    Returns
+    -------
+    pd.Series  index = beer_id, values = popularity score, sorted desc
+    """
+    profiles = item_profiles.copy()
+
+    if style:
+        filtered = profiles[profiles["beer_style"].str.lower() == style.lower()]
+        if not filtered.empty:
+            profiles = filtered
+
+    profiles["_pop_score"] = (
+        profiles["avg_overall_rating"] * np.log1p(profiles["total_reviews_count"])
+    )
+
+    top = profiles.nlargest(n, "_pop_score")
+    return pd.Series(
+        top["_pop_score"].values,
+        index=top["beer_id"].values,
+        name="popularity_score",
+    ).sort_values(ascending=False)
+
+
 if __name__ == "__main__":
     sample_user = train_df["username"].iloc[0]
 

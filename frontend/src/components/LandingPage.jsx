@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './LandingPage.css';
 import logo from '../assets/logo.png';
 
-const LandingPage = ({ onLogin }) => {
+const LandingPage = ({ onLogin, onSignUp }) => {
   const [isVerified, setIsVerified] = useState(false);
 
   const handleAtudaiClick = () => {
@@ -39,7 +39,7 @@ const LandingPage = ({ onLogin }) => {
         
         <div className="auth-container">
           <button className="btn-secondary" onClick={onLogin}>Log In</button>
-          <button className="btn-primary" onClick={onLogin}>Create New Account</button>
+          <button className="btn-primary" onClick={onSignUp}>Create New Account</button>
         </div>
       </div>
 

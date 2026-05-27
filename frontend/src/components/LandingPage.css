@@ -1,0 +1,207 @@
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  font-family: sans-serif;
+  background-color: #141414; 
+  background-image: linear-gradient(rgba(20, 20, 20, 0.75), rgba(20, 20, 20, 0.9)), url('../assets/hero-bg.jpg');
+  background-size: 100% auto;
+  background-position: top center; 
+  background-repeat: no-repeat;
+}
+
+/* --- Age Modal --- */
+.age-modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background-color: rgba(0, 0, 0, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.age-modal {
+  background-color: #1e1e1e;
+  padding: 3rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+  border: 1px solid #333;
+}
+
+.age-modal h2 {
+  color: #ff4d4d;
+  margin-top: 0;
+}
+
+.age-modal p {
+  margin-bottom: 2rem;
+  color: #ccc;
+  line-height: 1.5;
+}
+
+.age-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.btn-primary {
+  background-color: #E67E22;
+  color: #fff;
+  border: none;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.btn-primary:hover { transform: scale(1.02); }
+
+.btn-secondary {
+  background-color: transparent;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  padding: 1rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #333;
+  color: #fff;
+}
+
+/* --- Top Section (Auth & Logo) --- */
+.top-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+  background-color: transparent; 
+}
+
+.rubeer-logo {
+  width: 350px;
+  margin-bottom: 2rem;
+}
+
+.hook-text {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+.auth-container {
+  display: flex;
+  gap: 1rem;
+}
+
+/* --- Bottom Section (About & Reviews) --- */
+.bottom-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+}
+
+.about-box, .reviews-container {
+  max-width: 800px;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.about-box h2, .reviews-container h2 {
+  color: #E67E22;
+  margin-bottom: 1rem;
+}
+
+.about-box p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: #ddd;
+}
+
+.review-card {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+.review-author {
+  display: block;
+  margin-top: 1rem;
+  font-style: normal;
+  color: #E67E22;
+  font-weight: bold;
+}
+.how-it-works {
+  text-align: center;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
+  width: 100%;
+  max-width: 900px;
+}
+
+.how-it-works h2 {
+  color: #E67E22;
+  margin-bottom: 2rem;
+}
+
+.steps-container {
+  display: flex;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.step {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2rem;
+  border-radius: 8px;
+  flex: 1;
+  border: 1px solid #333;
+}
+
+.step-number {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  background-color: #E67E22;
+  color: #fff;
+  border-radius: 50%;
+  line-height: 40px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.step h3 {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.step p {
+  color: #ddd;
+  line-height: 1.5;
+}
+
+.footer {
+  margin-top: auto;
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+  font-size: 0.9rem;
+  border-top: 1px solid #333;
+  width: 100%;
+}

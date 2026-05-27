@@ -1,0 +1,43 @@
+{
+  "user_id": "user_0123",
+  "swimlanes": [
+    {
+      "id": "row_1",
+      "title": "Because you like Hoppy IPAs",
+      "pipeline": "content_based",
+      "beers": [
+        {
+          "id": "beer_0042",
+          "name": "Haze Machine",
+          "style": "NEIPA",
+          "abv": 7.2,
+          "match_score": 0.94,
+          "image_url": "https://placehold.co/200x300/222222/46d369?text=Haze+Machine"
+        },
+        {
+          "id": "beer_0105",
+          "name": "Pine Needle",
+          "style": "West Coast IPA",
+          "abv": 6.8,
+          "match_score": 0.88,
+          "image_url": "https://placehold.co/200x300/222222/46d369?text=Pine+Needle"
+        }
+      ]
+    },
+    {
+      "id": "row_2",
+      "title": "Drinkers with your tastes also enjoyed",
+      "pipeline": "collaborative_filtering",
+      "beers": [
+        {
+          "id": "beer_0301",
+          "name": "Midnight Motor",
+          "style": "Imperial Stout",
+          "abv": 10.5,
+          "match_score": 0.91,
+          "image_url": "https://placehold.co/200x300/222222/46d369?text=Midnight+Motor"
+        }
+      ]
+    }
+  ]
+}

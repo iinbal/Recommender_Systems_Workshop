@@ -1,0 +1,344 @@
+/* Container for the whole row */
+.swimlane {
+  margin-bottom: 2rem;
+  padding-left: 2rem; /* Keeps title aligned but lets cards scroll off-screen */
+}
+
+.swimlane-title {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* The horizontal scrolling track */
+.swimlane-row {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  scroll-behavior: smooth;
+  /* Hide scrollbar for a cleaner Netflix look */
+  scrollbar-width: none; 
+}
+.swimlane-row::-webkit-scrollbar {
+  display: none; 
+}
+
+/* Individual Beer Card */
+.beer-card {
+  flex: 0 0 auto; /* Prevents cards from shrinking */
+  width: 200px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s ease-in-out;
+  cursor: pointer;
+  color: #fff;
+}
+
+.beer-card:hover {
+  transform: scale(1.05);
+}
+
+.beer-image {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+}
+
+.beer-info {
+  padding: 0.75rem;
+}
+
+.match-score {
+  color: #46d369; /* Netflix green */
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.beer-title {
+  font-size: 1rem;
+  font-weight: bold;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.beer-meta {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+/* --- Modal Styles --- */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensures it sits on top of everything */
+}
+
+.modal-content {
+  background-color: #181818;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  color: #fff;
+  animation: modalFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 2rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-button:hover {
+  color: #fff;
+}
+
+.modal-image {
+  width: 250px;
+  object-fit: cover;
+}
+
+.modal-details {
+  padding: 2rem;
+  flex: 1;
+}
+
+.modal-details h2 {
+  margin: 0.5rem 0;
+  font-size: 1.8rem;
+}
+
+.modal-divider {
+  height: 1px;
+  background-color: #333;
+  margin: 1.5rem 0;
+}
+
+.modal-details h3 {
+  font-size: 1.1rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+}
+
+.modal-details p {
+  line-height: 1.5;
+  color: #ddd;
+}
+
+.flavor-tags {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background-color: #333;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+/* --- Navbar Styles --- */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #111111;
+  padding: 1rem 3rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid #1a1a1a;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+.navbar-left .nav-logo {
+  height: 45px;
+  cursor: pointer;
+  mix-blend-mode: screen;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.nav-link {
+  color: #e2e2e2d7;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: bold;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #E67E22;
+}
+
+/* --- Profile Dropdown Menu --- */
+.profile-menu-container {
+  position: relative;
+}
+
+.hamburger-menu {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 30px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hamburger-menu span {
+  width: 100%;
+  height: 3px;
+  background-color: #E67E22; 
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.hamburger-menu:hover span {
+  background-color: #fff;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 45px;
+  right: 0;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  width: 150px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  background: none;
+  border: none;
+  color: #ccc;
+  padding: 0.8rem 1rem;
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #2a2a2a;
+  color: #fff;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #333;
+}
+
+/* --- Favorite Heart Ticker --- */
+.beer-card-wrapper {
+  position: relative;
+}
+
+.favorite-heart {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: #aaa;
+  font-size: 1.3rem;
+  padding: 6px 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.1s, color 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorite-heart:hover {
+  transform: scale(1.15);
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.favorite-heart.is-favorite {
+  color: #E67E22;
+}
+
+/* --- Favorites Page Styles --- */
+.page-title {
+  color: #fff;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  border-bottom: 2px solid #222;
+  padding-bottom: 1rem;
+  display: inline-block;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 2rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 5rem 2rem;
+  color: #888;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  border: 1px dashed #333;
+  margin-top: 2rem;
+}
+
+.empty-state h2 {
+  color: #E67E22;
+  margin-bottom: 1rem;
+}
+
+.favorites-grid .beer-card-wrapper {
+  width: 100%;
+}
+.favorites-grid .beer-card {
+  width: 100%;
+  margin-right: 0;
+}

@@ -5,14 +5,14 @@ import os
 # ==========================================
 # CENTRAL CONFIGURATION
 # ==========================================
-file_path_1 = r'C:\year3\recommenderSystem\beeradvocate.json\beeradvocate.json'
-file_path_2 = r'C:\year3\recommenderSystem\beeradvocate.json\ratebeer.json\ratebeer.json'
-log_file_path = r'C:\year3\recommenderSystem\bad_rows_log.txt'
+file_path_1 = r'C:\Users\nitza\OneDrive\Documents\RecSys\beeradvocate.json'
+file_path_2 = r'C:\Users\nitza\OneDrive\Documents\RecSys\ratebeer.json'
+log_file_path = r'C:\Users\nitza\OneDrive\Documents\RecSys\bad_rows_log.txt'
 
 DB_PARAMS = {
     "dbname": "recommend_db",
     "user": "postgres",
-    "password": "123456",
+    "password": "Aa321321",
     "host": "localhost",
     "port": 5432
 }

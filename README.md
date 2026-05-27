@@ -152,6 +152,51 @@ ls *.csv
 
 ---
 
+## Running the frontend
+
+The frontend is a React + Vite app located in the `frontend/` directory. It currently runs on mock data and does not require the backend or database to be set up.
+
+### Prerequisites — Node.js
+
+Download and install Node.js from **https://nodejs.org** (choose the LTS version).
+
+Verify the installation:
+```powershell
+node --version
+npm --version
+```
+
+### Install and start
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite will print a local URL:
+```
+  VITE ready in Xms
+  ➜  Local:   http://localhost:5173/
+```
+
+Open **http://localhost:5173** in your browser.
+
+### What to test
+
+| Flow | Steps |
+|---|---|
+| Age gate | Page loads → click "I am 18 or older" |
+| Age gate reject | Click "I'm an Atudai" → alert appears |
+| Login | Click "Log In" or "Create New Account" → goes to dashboard |
+| Beer modal | Click any beer card → detail modal opens |
+| Favorites | Click ♡ on a card → heart fills; click "Favorites" in navbar |
+| Empty favorites | Go to Favorites before hearting anything → empty state message |
+| Logo navigation | In dashboard, click the logo → returns to home swimlanes |
+| Logout | Hamburger menu → Logout → back to landing page |
+
+---
+
 ## Running the pipelines
 
 Once the CSVs exist, run either pipeline directly:
@@ -192,3 +237,6 @@ When the real CSVs are present, the CB pipeline tests run against the full beer 
 | `database "recommend_db" does not exist` | Database not created | Run `psql -U postgres -c "CREATE DATABASE recommend_db;"` |
 | `authentication failed for user "postgres"` | Wrong password in `DB_PARAMS` | Update `password` in both `process_json.py` and `pipeline.py` |
 | No CSV files after running `pipeline.py` | `process_json.py` failed first | Check the output of `process_json.py` for errors before running `pipeline.py` |
+| `npm` not recognised | Node.js not installed or not in PATH | Install from nodejs.org, then reopen PowerShell |
+| `npm install` fails with peer dependency errors | Node.js version too old | Install the LTS version from nodejs.org |
+| `http://localhost:5173` shows blank page | Dev server not running | Make sure `npm run dev` is still running in the terminal |

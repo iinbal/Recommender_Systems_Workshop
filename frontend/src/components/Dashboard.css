@@ -342,3 +342,256 @@
   width: 100%;
   margin-right: 0;
 }
+
+/* --- Discover Page Styles --- */
+.search-container {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 600px;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  border-radius: 30px;
+  border: 1px solid #333;
+  background-color: #1a1a1a;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #E67E22;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.category-tag {
+  background-color: transparent;
+  color: #E67E22;
+  border: 1px solid #E67E22;
+  padding: 0.5rem 1.2rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-tag.active, 
+.category-tag:hover {
+  background-color: #E67E22;
+  color: #ffffff;
+}
+
+.results-header {
+  color: #888;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+/* --- Advanced Filters Styles --- */
+.filter-toggle-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  align-self: flex-start;
+  transition: color 0.2s;
+}
+
+.filter-toggle-btn:hover {
+  color: #E67E22;
+}
+
+.advanced-filters-panel {
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.apply-filters-btn {
+  background-color: #E67E22;
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.5rem;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.2s;
+}
+
+.apply-filters-btn:hover {
+  background-color: #d67118;
+}
+
+/* --- Active Filter Bubbles --- */
+.active-filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.filter-bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #333; /* The gray background you requested */
+  color: #ccc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.85rem;
+}
+
+.filter-bubble button {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.filter-bubble button:hover {
+  color: #ff4d4d;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+}
+
+.filter-value {
+  color: #E67E22;
+}
+
+/* Customizing the slider */
+.filter-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #333;
+  border-radius: 5px;
+  outline: none;
+}
+
+.filter-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #E67E22;
+  cursor: pointer;
+}
+/* --- Rating & Review Styles --- */
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.card-rating {
+  color: #E67E22;
+  font-weight: bold;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Modal Review Section */
+.review-section {
+  margin-top: 2rem;
+  background-color: #1a1a1a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.bottle-rating-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.review-textarea::-webkit-resizer {
+  width: 100%;
+  display: none;
+  background-color: transparent;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 1rem;
+  border-radius: 6px;
+  min-height: 80px;
+  font-family: inherit;
+  resize: none;
+  margin-bottom: 1rem;
+}
+
+.review-textarea:focus {
+  outline: none;
+  border-color: #E67E22;
+}
+
+.submit-review-btn {
+  background-color: #E67E22;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.submit-review-btn:hover {
+  background-color: #d67118;
+}
+
+.submit-review-btn:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}

@@ -10,7 +10,7 @@ import galacticStoutImage from './assets/Galactic Stout.jpg';
 import hazyHorizonImage from './assets/Hazy Horizon.jpg';
 import midnightPorterImage from './assets/Midnight Porter.jpg';
 import rubyRedImage from './assets/Ruby Red.jpg';
-import crispMorningImage from './assets/Crisp Morning.jpg';
+import crispMorningImage from './assets/Crisp morning.jpg';
 import goldenHourImage from './assets/Golden Hour.jpg';
 import spicedPumpkinImage from './assets/Spiced Pumpkin.jpg';
 

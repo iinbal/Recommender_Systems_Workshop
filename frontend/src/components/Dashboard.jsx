@@ -58,7 +58,7 @@ const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }
   );
 };
 
-const BottleIcon = ({ filled, onMouseEnter, onMouseLeave, onClick }) => (
+export const BottleIcon = ({ filled, onMouseEnter, onMouseLeave, onClick }) => (
   <svg 
     width="24" height="24" viewBox="0 0 24 24" 
     fill={filled ? "#E67E22" : "none"} 

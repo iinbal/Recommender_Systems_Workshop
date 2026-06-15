@@ -7,9 +7,10 @@ import cold_start
 import pandas as pd
 import numpy as np
 
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from sklearn.metrics.pairwise import cosine_similarity
 
+QUIZ_DATA_PATH = Path(__file__).resolve().parent.parent / "quiz_data.json"
 STANDARD_LAMBDA = 0.25
 CANDIDATE_NUM = 50
 HYBRID_CANDIDATE_NUM = 25

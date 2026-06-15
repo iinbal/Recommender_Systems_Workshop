@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import AuthScreen from './components/AuthScreen';
-import RecommenderDashboard from './components/Dashboard';
+import RecommenderDashboard, { BottleIcon } from './components/Dashboard';
 import LandingPage from './components/LandingPage';
+import './components/Dashboard.css';
 import CherryTartImage from './assets/Cherry Tart.jpg';
 import citrusBlastImage from './assets/Citrus Blast.jpg';
 import desertMirageImage from './assets/Sour Ale.jpg';
@@ -14,19 +15,78 @@ import goldenHourImage from './assets/Golden Hour.jpg';
 import spicedPumpkinImage from './assets/Spiced Pumpkin.jpg';
 
 
-// --- TEMPORARY COLD START PLACEHOLDER ---
-const ColdStartQuestionnaire = ({ onComplete }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#141414', color: 'white' }}>
-    <h2 style={{ color: '#E67E22' }}>Cold Start Questionnaire</h2>
-    <p style={{ marginBottom: '2rem' }}>This is where the user will rate their first beers.</p>
-    <button 
-      onClick={onComplete} 
-      style={{ padding: '0.8rem 1.5rem', background: '#E67E22', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
-    >
-      Simulate Completion
-    </button>
+// --- COLD START QUESTIONNAIRE ---
+const MIN_RATINGS_REQUIRED = 5;
+
+const ColdStartCard = ({ beer, rating, hoverRating, onHover, onLeave, onRate }) => (
+  <div className="beer-card-wrapper">
+    <div className="beer-card">
+      <img src={beer.image_url} alt={beer.name} className="beer-image" />
+      <div className="beer-info">
+        <h3 className="beer-title">{beer.name}</h3>
+        <div className="beer-meta">{beer.style} • {beer.abv}% ABV</div>
+        <div className="bottle-rating-container" style={{ marginTop: '0.5rem' }}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <BottleIcon
+              key={star}
+              filled={star <= (hoverRating || rating)}
+              onMouseEnter={() => onHover(star)}
+              onMouseLeave={onLeave}
+              onClick={() => onRate(star)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
   </div>
 );
+
+const ColdStartQuestionnaire = ({ beers, onComplete }) => {
+  const [ratings, setRatings] = useState({});
+  const [hovered, setHovered] = useState({});
+
+  const ratedCount = Object.keys(ratings).length;
+  const canSubmit = ratedCount >= MIN_RATINGS_REQUIRED;
+
+  const handleRate = (beerId, star) => {
+    setRatings(prev => ({ ...prev, [beerId]: star }));
+  };
+
+  return (
+    <div style={{ backgroundColor: '#141414', minHeight: '100vh', padding: '2rem 3rem', color: '#fff' }}>
+      <h2 className="page-title">Welcome! Let's get to know your taste</h2>
+      <p style={{ color: '#ccc', marginBottom: '1.5rem' }}>
+        Rate at least {MIN_RATINGS_REQUIRED} beers to help us build your personalized recommendations.
+        ({ratedCount}/{MIN_RATINGS_REQUIRED} rated)
+      </p>
+
+      <div className="favorites-grid">
+        {beers.map((beer) => (
+          <ColdStartCard
+            key={beer.id}
+            beer={beer}
+            rating={ratings[beer.id] || 0}
+            hoverRating={hovered[beer.id] || 0}
+            onHover={(star) => setHovered(prev => ({ ...prev, [beer.id]: star }))}
+            onLeave={() => setHovered(prev => ({ ...prev, [beer.id]: 0 }))}
+            onRate={(star) => handleRate(beer.id, star)}
+          />
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+        <button
+          className="submit-review-btn"
+          style={{ width: 'auto', padding: '0.8rem 2.5rem' }}
+          disabled={!canSubmit}
+          onClick={() => onComplete(ratings)}
+        >
+          {canSubmit ? 'Build My Profile' : `Rate at least ${MIN_RATINGS_REQUIRED} beers to continue`}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -104,7 +164,19 @@ const dummyData = {
 
   // 3. If logged in but needs cold start, show Questionnaire
   if (needsColdStart) {
-    return <ColdStartQuestionnaire onComplete={() => setNeedsColdStart(false)} />;
+    const coldStartBeers = dummyData.swimlanes.flatMap(lane => lane.beers)
+      .filter((beer, index, self) => self.findIndex(b => b.id === beer.id) === index);
+
+    return (
+      <ColdStartQuestionnaire
+        beers={coldStartBeers}
+        onComplete={(ratings) => {
+          console.log('Cold start ratings:', ratings);
+          // TODO: send `ratings` to the cold-start pipeline endpoint
+          setNeedsColdStart(false);
+        }}
+      />
+    );
   }
 
   // 4. Otherwise, show the main application

@@ -1,0 +1,54 @@
+{
+  "title": "Find your first beers",
+  "description": "Answer a few quick questions about your taste preferences so we can recommend beers you'll love from day one.",
+  "questions": [
+    {
+      "id": "hoppy",
+      "question": "How much do you enjoy hoppy, bitter beers like IPAs?",
+      "styles": ["IPA", "India Pale Ale", "Double IPA", "Pale Ale", "American Pale Ale"],
+      "options": [
+        { "label": "Love it", "value": 5 },
+        { "label": "Like it", "value": 4 },
+        { "label": "Neutral", "value": 3 },
+        { "label": "Not really", "value": 2 },
+        { "label": "Hate it", "value": 1 }
+      ]
+    },
+    {
+      "id": "dark",
+      "question": "How do you feel about dark, roasty beers like stouts and porters?",
+      "styles": ["Stout", "Porter", "Imperial Stout", "Brown Ale"],
+      "options": [
+        { "label": "Love it", "value": 5 },
+        { "label": "Like it", "value": 4 },
+        { "label": "Neutral", "value": 3 },
+        { "label": "Not really", "value": 2 },
+        { "label": "Hate it", "value": 1 }
+      ]
+    },
+    {
+      "id": "sour",
+      "question": "Are you a fan of sour or funky/tart beers?",
+      "styles": ["Sour", "Sour Ale", "Wild Ale", "Lambic", "Fruit Beer"],
+      "options": [
+        { "label": "Love it", "value": 5 },
+        { "label": "Like it", "value": 4 },
+        { "label": "Neutral", "value": 3 },
+        { "label": "Not really", "value": 2 },
+        { "label": "Hate it", "value": 1 }
+      ]
+    },
+    {
+      "id": "light",
+      "question": "Do you prefer light, crisp, easy-drinking beers like lagers and pilsners?",
+      "styles": ["Lager", "Pilsner", "Light Lager", "Pale Lager", "Wheat Beer"],
+      "options": [
+        { "label": "Love it", "value": 5 },
+        { "label": "Like it", "value": 4 },
+        { "label": "Neutral", "value": 3 },
+        { "label": "Not really", "value": 2 },
+        { "label": "Hate it", "value": 1 }
+      ]
+    }
+  ]
+}

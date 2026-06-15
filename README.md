@@ -44,7 +44,7 @@ py --version
 ### 2. Install Python dependencies
 
 ```powershell
-py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest fastapi uvicorn
+py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest "fastapi[standard]" uvicorn
 ```
 
 ---
@@ -220,9 +220,17 @@ The CF pipeline operates on the rating matrix entirely via sparse matrices, so i
 
 The FastAPI backend wires the CF, CB, and cold-start pipelines together into HTTP endpoints for the frontend.
 
+When developing the app use the following command to enable auto reload
 ```powershell
-py -m uvicorn backend.api_server:app --reload --port 8000
+py -m fastapi dev
 ```
+
+Use this command for running the app in production environments
+```powershell
+py -m fastapi run
+```
+
+both commands need to be run in the base project directory
 
 On startup it loads the CF and CB pipelines (real CSVs if present, otherwise demo data) — this can take a little while with the full dataset.
 

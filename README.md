@@ -8,10 +8,14 @@ A beer recommendation system implementing Collaborative Filtering (CF) and Conte
 
 ```
 Recommender_Systems_Workshop/
-├── dummy_data.py                  # Synthetic rating matrix generator (used by CF pipeline)
-├── cf_pipeline.py                 # Collaborative Filtering pipeline (SVD-based)
+├── dummy_data.py                  # Synthetic rating matrix generator (used by CF pipeline fallback)
+├── cf_pipeline.py                 # Collaborative Filtering pipeline (sparse SVD-based)
 ├── cb_pipeline.py                 # Content-Based pipeline (TF-IDF + cosine similarity)
+├── cold_start.py                  # Cold-start recommendations from onboarding quiz answers
+├── quiz_data.json                 # Static onboarding quiz config (served to the frontend)
 ├── test_pipelines.py              # Full test suite (102 tests)
+├── backend/
+│   └── api_server.py              # FastAPI server wiring CF/CB/cold-start into endpoints
 ├── data_processing/
 │   ├── process_json.py            # Ingest raw JSON files → PostgreSQL
 │   ├── pipeline.py                # Feature engineering + train/val/test split → CSVs
@@ -40,7 +44,7 @@ py --version
 ### 2. Install Python dependencies
 
 ```powershell
-py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest
+py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest fastapi uvicorn
 ```
 
 ---
@@ -199,14 +203,49 @@ Open **http://localhost:5173** in your browser.
 
 ## Running the pipelines
 
-Once the CSVs exist, run either pipeline directly:
+Run either pipeline directly:
 
 ```powershell
 py cf_pipeline.py    # Collaborative Filtering — prints sample recommendations
 py cb_pipeline.py    # Content-Based — prints sample recommendations
 ```
 
-The CF pipeline uses a synthetic rating matrix by default (`dummy_data.py`). The CB pipeline automatically uses the real CSVs if they are present in the project root, otherwise it falls back to a small demo dataset.
+Both pipelines automatically use the real CSVs (`train_set_enriched.csv`, `item_profiles_for_cold_start_enriched.csv`) if they are present in the project root, otherwise they fall back to a small synthetic/demo dataset (`dummy_data.py` for CF, an in-memory mini catalog for CB).
+
+The CF pipeline operates on the rating matrix entirely via sparse matrices, so it scales to the full dataset (tens of thousands of users × beers) without the memory blowups a dense matrix would cause.
+
+---
+
+## Running the API server
+
+The FastAPI backend wires the CF, CB, and cold-start pipelines together into HTTP endpoints for the frontend.
+
+```powershell
+py -m uvicorn backend.api_server:app --reload --port 8000
+```
+
+On startup it loads the CF and CB pipelines (real CSVs if present, otherwise demo data) — this can take a little while with the full dataset.
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Health check |
+| `GET` | `/recommendations/{user_id}` | Hybrid CF + CB recommendations for an existing user |
+| `GET` | `/quiz` | Serves the onboarding quiz config (`quiz_data.json`) |
+| `POST` | `/recommendations/cold-start` | Returns initial recommendations for a new user based on quiz answers |
+
+### Cold-start flow (new users)
+
+1. Frontend calls `GET /quiz` to fetch and render the onboarding questions (taste clusters: hoppy, dark, sour, light).
+2. User answers each question on a 1–5 scale.
+3. Frontend posts the answers:
+   ```powershell
+   Invoke-RestMethod -Uri http://localhost:8000/recommendations/cold-start `
+     -Method Post -ContentType "application/json" `
+     -Body '{"answers": {"hoppy": 5, "dark": 1, "sour": 1, "light": 2}}'
+   ```
+4. The response contains `recommended_ids` and matching `scores`, computed by `cold_start.get_cold_start_recommendations()` from a blend of quiz-based style matching and overall beer popularity — in the same format as `cb_recommend`/`cf_recommend`.
 
 ---
 
@@ -240,3 +279,6 @@ When the real CSVs are present, the CB pipeline tests run against the full beer 
 | `npm` not recognised | Node.js not installed or not in PATH | Install from nodejs.org, then reopen PowerShell |
 | `npm install` fails with peer dependency errors | Node.js version too old | Install the LTS version from nodejs.org |
 | `http://localhost:5173` shows blank page | Dev server not running | Make sure `npm run dev` is still running in the terminal |
+| `ModuleNotFoundError: fastapi` / `uvicorn` | Dependencies not installed | Run `py -m pip install fastapi uvicorn` |
+| `Invoke-WebRequest : Cannot bind parameter 'Headers'` | PowerShell's `curl` is aliased to `Invoke-WebRequest`, which doesn't accept curl-style flags | Use `Invoke-RestMethod -Uri ... -Method Post -ContentType "application/json" -Body '...'` instead |
+| `uvicorn` prints startup output twice | `--reload` runs a reloader process + a worker process | Normal — only the second "Application startup complete" matters |

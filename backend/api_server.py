@@ -1,5 +1,9 @@
+import json
+from pathlib import Path
+
 import cf_pipeline as cf
 import cb_pipeline as cb
+import cold_start
 import pandas as pd
 import numpy as np
 
@@ -29,6 +33,33 @@ async def get_recommendation(user_id):
     return {
             "recommended_ids:": selected_recommendations.index.tolist()
         }
+
+@app.get("/quiz")
+async def get_quiz():
+    """Serve the onboarding quiz configuration to the frontend."""
+    with open(QUIZ_DATA_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.post("/recommendations/cold-start")
+async def get_cold_start_recommendation(payload: dict = Body(...)):
+    """
+    Receive onboarding quiz answers and return initial recommendations
+    for a brand-new user.
+
+    Expected payload: {"answers": {"hoppy": 5, "dark": 2, "sour": 1, "light": 4}}
+    """
+    quiz_answers = payload.get("answers", {})
+
+    recommendations = cold_start.get_cold_start_recommendations(
+        quiz_answers, FINAL_RECOMMENDATION_NUM
+    )
+
+    return {
+        "recommended_ids": recommendations.index.tolist(),
+        "scores": recommendations.values.tolist(),
+    }
+
 
 def create_hybrid_scores(user_id: str, cf_scores: pd.Series, cb_scores: pd.Series) -> pd.Series:
     # TODO: adjust alpha based on how much data is available for user

@@ -14,9 +14,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 QUIZ_DATA_PATH = Path(__file__).resolve().parent.parent / "quiz_data.json"
 STANDARD_CF_WEIGHT = 0.6
 STANDARD_LAMBDA = 0.25
+STANDARD_GROUP_PENALTY = 0.5
 HYBRID_MULTIPLIER = 3
 RERANK_MULTIPLIER = 2
-FINAL_RECOMMENDATION_NUM = 10
+DEFAULT_RECOMMENDATION_NUM = 10
 
 app = FastAPI()
 
@@ -25,7 +26,7 @@ async def root():
     return {"message": "You shouldn't be here ;)"}
     
 @app.get("/recommendations/{user_id}")
-async def get_recommendation(user_id: str, rec_num: int = FINAL_RECOMMENDATION_NUM):
+async def get_recommendation(user_id: str, rec_num: int = DEFAULT_RECOMMENDATION_NUM):
     """
     Return a list of recommended beers tailored to the given user
 
@@ -49,7 +50,7 @@ async def get_recommendation(user_id: str, rec_num: int = FINAL_RECOMMENDATION_N
         }
 
 @app.get("/group")
-async def get_group_recommend(group = ""):
+async def get_group_recommend(group: str = "", rec_num: int = DEFAULT_RECOMMENDATION_NUM):
     """
     Returns a list of recommended beers for a given group
     
@@ -64,30 +65,18 @@ async def get_group_recommend(group = ""):
     user_ids = [user_id.strip() for user_id in group.split(",")]
     
     if not user_ids:
-        return pd.Series(dtype=float)
+        return "No users provided"
         
-    # 2. Fetch recommendations for all users and collect them in a dictionary
     # Assuming get_recommendations(user_id) returns a pd.Series
-    user_recommendations = {}
-    for user_id in user_ids:
-        user_recommendations[user_id] = get_recommendations(user_id)
-        
-    # 3. Combine individual series into a single DataFrame
-    # Columns will be user IDs, Rows (Index) will be beer IDs.
-    # Beers not recommended to a specific user will naturally default to NaN.
-    df = pd.DataFrame(user_recommendations)
+    user_candidates = get_group_candidates(user_ids, RERANK_MULTIPLIER * rec_num)
     
-    # 4. Fill NaNs with 0 under the assumption that if a system didn't 
-    # recommend a beer to a user, that user's predicted score for it is 0.
-    df = df.fillna(0.0)
-    
-    # 5. Calculate row-wise (per-beer) average and variance across the users
-    beer_means = df.mean(axis=1)
-    beer_variances = df.var(axis=1, ddof=0) # ddof=0 calculates population variance
-    
-    # 6. Apply the variance penalty formula
-    group_scores = beer_means - (alpha * beer_variances)
-    return {}
+    # Apply reranking diversity
+    final_recommendations = rerank_recommendations(user_candidates, rec_num)
+
+    return {
+            "recommended_ids:": final_recommendations.index.tolist(),
+            "scores": final_recommendations.values.tolist()
+        }
 
 @app.get("/quiz")
 async def get_quiz():
@@ -107,7 +96,7 @@ async def get_cold_start_recommendation(payload: dict = Body(...)):
     quiz_answers = payload.get("answers", {})
 
     recommendations = cold_start.get_cold_start_recommendations(
-        quiz_answers, FINAL_RECOMMENDATION_NUM
+        quiz_answers, DEFAULT_RECOMMENDATION_NUM
     )
 
     return {
@@ -170,6 +159,43 @@ def get_user_rec_candidates(user_id: str, candidate_num: int) -> pd.Series:
     hybrid_candidates = hybridize_candidates(cf_candidates, cb_candidates, candidate_num)
 
     return hybrid_candidates
+
+def get_group_candidates(group_ids: list, candidate_num: int, penalty_weight: float = STANDARD_GROUP_PENALTY) -> pd.Series:
+    """
+    Returns refined series of recommended beer ids and adjusted recommendation scores for the given group
+
+    Parameters:
+    - group_ids: List of user id strings we want recommendation candidates for
+    - candidate_num: Desired number of candidates
+    - penalty_weight: Number in range (0,1), decides how heavily we want to penalize user disagrements
+
+    Returns:
+    - Series of recommendation candidates with adjusted group scores
+    """
+
+    # Get candidates for each user in the group
+    user_candidates = {user_id: get_user_rec_candidates(user_id, RERANK_MULTIPLIER * candidate_num) for user_id in group_ids}
+
+    # Convert dictionary to matrix of candidate scores
+    # Columns will be user IDs, Rows (Index) will be beer IDs.
+    candidate_mat = pd.DataFrame(user_candidates)
+    
+    # Fill missing scores for canditates with 0
+    # Under the assumption that if a beer wasn't recommended to a user they won't like it
+    candidate_mat = candidate_mat.fillna(0.0)
+    
+    # Calculate row-wise (per-beer) average and variance across the users
+    beer_means = candidate_mat.mean(axis=1)
+    # Scores are in (0,1) range so the variance will also be in that range
+    beer_variances = candidate_mat.var(axis=1, ddof=0)
+
+    # Penalize beers with high differences in compatability
+    group_scores = beer_means - (penalty_weight * beer_variances)
+
+    # Return only the best candidates
+    return group_scores.nlargest(candidate_num)
+
+
 
 def rerank_recommendations(candidates: pd.Series, rec_num: int, diversity_weight: float = STANDARD_LAMBDA):
     """

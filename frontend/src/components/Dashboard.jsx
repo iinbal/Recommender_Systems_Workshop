@@ -247,7 +247,7 @@ const BeerCard = ({ beer, onCardClick, isFav, onToggleFav }) => {
           
           <div className="card-header-row">
             <div className="match-score" style={{ color: '#E67E22', fontWeight: 'bold' }}>
-              {matchPercentage}% Match
+              {beer.rank ? `#${beer.rank}` : `${matchPercentage}% Match`}
             </div>
             <div className="card-rating">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#E67E22" stroke="#E67E22" strokeWidth="2"><path d="M10 2v5l-2 3v10a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-10l-2-3V2z"></path><path d="M10 2h4"></path></svg>

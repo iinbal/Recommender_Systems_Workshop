@@ -1,6 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import './Dashboard.css';
-import logo from '../assets/logo.png'; 
+import logo from '../assets/logo.png';
+import { getRecommendations, getBeerDetails, getSimilarBeers, submitRating, getSampleUsers } from '../services/apiService';
+
+const fallbackImage = (name) =>
+  `https://placehold.co/200x300/1a1a2e/e67e22?text=${encodeURIComponent(name || 'Beer')}`;
+
+// Maps a /beers/{id} response (plus an optional match score) into the shape
+// the existing card/modal UI expects.
+const mapBeerToCard = (beer, score) => ({
+  id: beer.beer_id,
+  name: beer.beer_name,
+  style: beer.beer_style,
+  abv: beer.beer_abv,
+  match_score: typeof score === 'number' ? score : 0,
+  rating: beer.avg_overall_rating,
+  image_url: fallbackImage(beer.beer_name),
+});
 
 // 1. Updated Navbar with toggle
 const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }) => {
@@ -73,13 +89,41 @@ export const BottleIcon = ({ filled, onMouseEnter, onMouseLeave, onClick }) => (
 );
 
 // --- Modal Component with Review System ---
-const BeerModal = ({ beer, onClose, userRatingData, onSubmitReview }) => {
-  if (!beer) return null;
-  const matchPercentage = Math.round(beer.match_score * 100);
-  
+const BeerModal = ({ beer, onClose, userRatingData, onSubmitReview, onCardClick }) => {
   const [hoverRating, setHoverRating] = useState(0);
   const [rating, setRating] = useState(userRatingData?.rating || 0);
   const [review, setReview] = useState(userRatingData?.review || '');
+  const [similarBeers, setSimilarBeers] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+
+  useEffect(() => {
+    if (!beer) return;
+    let cancelled = false;
+
+    const fetchSimilar = async () => {
+      setLoadingSimilar(true);
+      setSimilarBeers([]);
+      try {
+        const { similar } = await getSimilarBeers(beer.id, 3);
+        const details = await Promise.all(
+          similar.map((s) => getBeerDetails(s.beer_id))
+        );
+        if (cancelled) return;
+        setSimilarBeers(details.map((d, i) => mapBeerToCard(d, similar[i].score)));
+      } catch {
+        // Similar beers are non-critical; fail silently.
+        if (!cancelled) setSimilarBeers([]);
+      } finally {
+        if (!cancelled) setLoadingSimilar(false);
+      }
+    };
+
+    fetchSimilar();
+    return () => { cancelled = true; };
+  }, [beer]);
+
+  if (!beer) return null;
+  const matchPercentage = Math.round(beer.match_score * 100);
 
   const handleSubmit = () => {
     onSubmitReview(beer.id, rating, review);
@@ -148,6 +192,29 @@ const BeerModal = ({ beer, onClose, userRatingData, onSubmitReview }) => {
             >
               Save Rating
             </button>
+          </div>
+
+          {/* Similar Beers Section */}
+          <div className="similar-section">
+            <h3>Similar Beers</h3>
+            {loadingSimilar ? (
+              <div className="similar-loading">
+                {[1, 2, 3].map((i) => <div key={i} className="skeleton-card" />)}
+              </div>
+            ) : similarBeers.length > 0 ? (
+              <div className="similar-row">
+                {similarBeers.map((sb) => (
+                  <div
+                    key={sb.id}
+                    className="similar-card"
+                    onClick={() => onCardClick && onCardClick(sb)}
+                  >
+                    <img src={sb.image_url} alt={sb.name} />
+                    <span>{sb.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
         </div>
@@ -433,30 +500,55 @@ const RecommenderDashboard = ({ data, onLogout }) => {
   const [apiData, setApiData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [ratingVersion, setRatingVersion] = useState(0);
+  const [liveUserId, setLiveUserId] = useState(null);
 
   // NEW: The Fetch Hook that triggers when Demo Mode is turned off
 useEffect(() => {
     if (!isDemoMode) {
+      let cancelled = false;
+
       const fetchLiveData = async () => {
         setIsLoading(true);
         setApiError(null);
         try {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          throw new Error("Python API is not running yet! Please spin up the server."); 
+          let userId = liveUserId;
+          if (!userId) {
+            const { user_ids } = await getSampleUsers(1);
+            userId = user_ids[0];
+            if (!cancelled) setLiveUserId(userId);
+          }
+
+          const { recommended_ids, scores } = await getRecommendations(userId, 20);
+          const details = await Promise.all(
+            recommended_ids.map((id) => getBeerDetails(id))
+          );
+          const beers = details.map((beer, i) => mapBeerToCard(beer, scores[i]));
+
+          if (cancelled) return;
+          setApiData({
+            swimlanes: [
+              { id: 'top-matches', title: 'Top Matches for You', beers: beers.slice(0, 10) },
+              { id: 'also-like', title: 'You Might Also Like', beers: beers.slice(10) },
+            ],
+          });
         } catch (err) {
+          if (cancelled) return;
           setApiError(err.message);
           setApiData(null);
         } finally {
-          setIsLoading(false);
+          if (!cancelled) setIsLoading(false);
         }
       };
 
       fetchLiveData();
+
+      return () => { cancelled = true; };
     } else {
       setApiError(null);
       setIsLoading(false);
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, ratingVersion]);
 
   // Determine which data to feed the UI
   const activeData = isDemoMode ? data : apiData;
@@ -467,11 +559,34 @@ useEffect(() => {
     return Array.from(new Map(allBeers.map(b => [b.id, b])).values());
   }, [activeData]);
 
-  const handleSubmitReview = (beerId, rating, review) => {
+  const handleSubmitReview = async (beerId, rating, review) => {
     setUserRatings(prev => ({
       ...prev,
       [beerId]: { rating, review }
     }));
+
+    if (!isDemoMode) {
+      try {
+        await submitRating(liveUserId, beerId, rating);
+      } catch {
+        // Non-critical — local state was already updated
+      }
+
+      // Optimistically remove the rated beer from swimlanes
+      setApiData(prev => {
+        if (!prev || !prev.swimlanes) return prev;
+        return {
+          ...prev,
+          swimlanes: prev.swimlanes.map(lane => ({
+            ...lane,
+            beers: lane.beers.filter(b => b.id !== beerId),
+          })),
+        };
+      });
+
+      // Trigger a background re-fetch to get replacement recommendations
+      setRatingVersion(v => v + 1);
+    }
   };
 
   const toggleFavorite = (beerId) => {
@@ -556,11 +671,12 @@ useEffect(() => {
 
       </div>
 
-      <BeerModal 
-        beer={selectedBeer} 
-        onClose={() => setSelectedBeer(null)} 
+      <BeerModal
+        beer={selectedBeer}
+        onClose={() => setSelectedBeer(null)}
         userRatingData={selectedBeer ? userRatings[selectedBeer.id] : null}
         onSubmitReview={handleSubmitReview}
+        onCardClick={(beer) => setSelectedBeer(beer)}
       />
     </div>
   );

@@ -172,8 +172,10 @@ const dummyData = {
       <ColdStartQuestionnaire
         beers={coldStartBeers}
         onComplete={(ratings) => {
+          // The questionnaire collects beer ratings, which we persist locally.
+          // The quiz-based cold-start endpoint (style answers) is a separate
+          // flow driven by the onboarding quiz, not this screen.
           saveColdStartRatings(currentUser.email, ratings);
-          // TODO: also send `ratings` to the cold-start pipeline endpoint
           setNeedsColdStart(false);
         }}
       />

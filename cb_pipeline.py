@@ -28,6 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 ITEM_PROFILES_PATH = BASE_DIR / "item_profiles_for_cold_start_enriched.csv"
 TRAIN_PATH = BASE_DIR / "train_set_enriched.csv"
+ARTIFACTS_DIR = BASE_DIR / "artifacts"
 
 
 def make_demo_data():
@@ -62,18 +63,6 @@ def make_demo_data():
     return item_profiles_demo, train_demo
 
 
-if ITEM_PROFILES_PATH.exists() and TRAIN_PATH.exists():
-    item_profiles = pd.read_csv(ITEM_PROFILES_PATH)
-    train_df = pd.read_csv(TRAIN_PATH)
-    print("Loaded real CSV files.")
-else:
-    item_profiles, train_df = make_demo_data()
-    print("WARNING: Real CSV files not found. Running with demo data.")
-
-print(f"Item profiles loaded: {item_profiles.shape}")
-print(f"Train data loaded:    {train_df.shape}")
-
-
 text_feature = "all_reviews_text"
 categorical_features = ["beer_style"]
 
@@ -91,60 +80,93 @@ numeric_features = [
 required_item_columns = ["beer_id", "beer_name", "beer_style", text_feature] + numeric_features
 required_train_columns = ["username", "beer_id", "rating_overall"]
 
-missing_item_cols = [col for col in required_item_columns if col not in item_profiles.columns]
-missing_train_cols = [col for col in required_train_columns if col not in train_df.columns]
 
-if missing_item_cols:
-    raise ValueError(f"Missing required columns in item_profiles: {missing_item_cols}")
+_CB_ARTIFACTS_READY = (ARTIFACTS_DIR / "cb_feature_matrix.npz").exists()
 
-if missing_train_cols:
-    raise ValueError(f"Missing required columns in train_df: {missing_train_cols}")
+if _CB_ARTIFACTS_READY:
+    # ── Path 1: load precomputed artifacts ──────────────────────────
+    from scipy.sparse import load_npz
+    import joblib
 
-item_profiles[text_feature] = item_profiles[text_feature].fillna("")
-item_profiles["beer_style"] = item_profiles["beer_style"].fillna("unknown")
+    beer_feature_matrix = load_npz(ARTIFACTS_DIR / "cb_feature_matrix.npz")
+    item_profiles = pd.read_csv(ARTIFACTS_DIR / "cb_item_profiles.csv")
+    train_df = pd.read_csv(ARTIFACTS_DIR / "cb_train_df.csv")
+    beer_ids = np.load(ARTIFACTS_DIR / "cb_beer_ids.npy", allow_pickle=True)
+    beer_id_to_index = {beer_id: idx for idx, beer_id in enumerate(beer_ids)}
+    preprocessor = joblib.load(ARTIFACTS_DIR / "cb_preprocessor.joblib")
 
-for col in numeric_features:
-    item_profiles[col] = pd.to_numeric(item_profiles[col], errors="coerce")
-
-if item_profiles["beer_abv"].notna().any():
-    item_profiles["beer_abv"] = item_profiles["beer_abv"].fillna(
-        item_profiles["beer_abv"].median()
-    )
+    print("CB artifacts loaded from disk.")
+    print(f"Item profiles loaded: {item_profiles.shape}")
+    print(f"Train data loaded:    {train_df.shape}")
+    print(f"Beer feature matrix: {beer_feature_matrix.shape}")
 else:
-    item_profiles["beer_abv"] = item_profiles["beer_abv"].fillna(0)
+    # ── Path 2/3: load CSV or demo data, then fit on the fly ────────
+    print("No CB artifacts found. Computing on the fly...")
 
-for col in numeric_features:
-    item_profiles[col] = item_profiles[col].fillna(0)
+    if ITEM_PROFILES_PATH.exists() and TRAIN_PATH.exists():
+        item_profiles = pd.read_csv(ITEM_PROFILES_PATH)
+        train_df = pd.read_csv(TRAIN_PATH)
+        print("Loaded real CSV files.")
+    else:
+        item_profiles, train_df = make_demo_data()
+        print("WARNING: Real CSV files not found. Running with demo data.")
 
-train_df["rating_overall"] = pd.to_numeric(
-    train_df["rating_overall"],
-    errors="coerce",
-).fillna(0)
+    print(f"Item profiles loaded: {item_profiles.shape}")
+    print(f"Train data loaded:    {train_df.shape}")
 
+    missing_item_cols = [col for col in required_item_columns if col not in item_profiles.columns]
+    missing_train_cols = [col for col in required_train_columns if col not in train_df.columns]
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ("style", OneHotEncoder(handle_unknown="ignore"), categorical_features),
-        ("numeric", StandardScaler(), numeric_features),
-        (
-            "text",
-            TfidfVectorizer(
-                max_features=2000,
-                stop_words="english",
-                min_df=1,
+    if missing_item_cols:
+        raise ValueError(f"Missing required columns in item_profiles: {missing_item_cols}")
+
+    if missing_train_cols:
+        raise ValueError(f"Missing required columns in train_df: {missing_train_cols}")
+
+    item_profiles[text_feature] = item_profiles[text_feature].fillna("")
+    item_profiles["beer_style"] = item_profiles["beer_style"].fillna("unknown")
+
+    for col in numeric_features:
+        item_profiles[col] = pd.to_numeric(item_profiles[col], errors="coerce")
+
+    if item_profiles["beer_abv"].notna().any():
+        item_profiles["beer_abv"] = item_profiles["beer_abv"].fillna(
+            item_profiles["beer_abv"].median()
+        )
+    else:
+        item_profiles["beer_abv"] = item_profiles["beer_abv"].fillna(0)
+
+    for col in numeric_features:
+        item_profiles[col] = item_profiles[col].fillna(0)
+
+    train_df["rating_overall"] = pd.to_numeric(
+        train_df["rating_overall"],
+        errors="coerce",
+    ).fillna(0)
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("style", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+            ("numeric", StandardScaler(), numeric_features),
+            (
+                "text",
+                TfidfVectorizer(
+                    max_features=2000,
+                    stop_words="english",
+                    min_df=1,
+                ),
+                text_feature,
             ),
-            text_feature,
-        ),
-    ],
-    remainder="drop",
-)
+        ],
+        remainder="drop",
+    )
 
-beer_feature_matrix = preprocessor.fit_transform(item_profiles)
+    beer_feature_matrix = preprocessor.fit_transform(item_profiles)
 
-beer_ids = item_profiles["beer_id"].values
-beer_id_to_index = {beer_id: idx for idx, beer_id in enumerate(beer_ids)}
+    beer_ids = item_profiles["beer_id"].values
+    beer_id_to_index = {beer_id: idx for idx, beer_id in enumerate(beer_ids)}
 
-print(f"Beer feature matrix: {beer_feature_matrix.shape}")
+    print(f"Beer feature matrix: {beer_feature_matrix.shape}")
 
 
 def to_dense_array(matrix):
@@ -220,7 +242,7 @@ def build_user_profile(user_id: str):
     return user_profile
 
 
-def cb_recommend(user_id: str, n: int = 10) -> pd.Series:
+def cb_recommend(user_id: str, n: int = 10, exclude_ids=None) -> pd.Series:
     """
     Return top-N content-based beer recommendations for a user.
     """
@@ -239,6 +261,13 @@ def cb_recommend(user_id: str, n: int = 10) -> pd.Series:
         for idx, beer_id in enumerate(beer_ids)
         if beer_id not in already_rated
     ]
+
+    if exclude_ids:
+        exclude_set = set(exclude_ids)
+        candidate_indices = [
+            idx for idx in candidate_indices
+            if beer_ids[idx] not in exclude_set
+        ]
 
     if not candidate_indices:
         return pd.Series(dtype=float, name="cb_score")

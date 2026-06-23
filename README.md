@@ -4,6 +4,16 @@ A beer recommendation system implementing Collaborative Filtering (CF) and Conte
 
 ---
 
+## Quick Start
+
+1. Install Python deps: `py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest "fastapi[standard]" uvicorn joblib httpx`
+2. Train models: `py train_models.py` (requires the enriched CSV files)
+3. Start the backend: `py -m fastapi dev` (from project root)
+4. Start the frontend: `cd frontend && npm install && npm run dev`
+5. Open http://localhost:5173 — toggle "Demo Data" off to see live recommendations
+
+---
+
 ## Project Structure
 
 ```
@@ -13,13 +23,21 @@ Recommender_Systems_Workshop/
 ├── cb_pipeline.py                 # Content-Based pipeline (TF-IDF + cosine similarity)
 ├── cold_start.py                  # Cold-start recommendations from onboarding quiz answers
 ├── quiz_data.json                 # Static onboarding quiz config (served to the frontend)
-├── test_pipelines.py              # Full test suite (102 tests)
+├── train_models.py                # Offline model training → artifacts/
+├── artifacts/                     # Pre-computed model matrices (gitignored)
+├── test_pipelines.py              # Full unit test suite (102 tests)
+├── test_integration.py           # API endpoint integration tests
 ├── backend/
 │   └── api_server.py              # FastAPI server wiring CF/CB/cold-start into endpoints
 ├── data_processing/
 │   ├── process_json.py            # Ingest raw JSON files → PostgreSQL
 │   ├── pipeline.py                # Feature engineering + train/val/test split → CSVs
 │   └── analyze.py                 # Exploratory data analysis
+├── frontend/
+│   ├── .env.example               # API base URL config
+│   └── src/
+│       └── services/
+│           └── apiService.js      # Backend API client
 ```
 
 ---
@@ -44,7 +62,7 @@ py --version
 ### 2. Install Python dependencies
 
 ```powershell
-py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest "fastapi[standard]" uvicorn
+py -m pip install psycopg2-binary pandas scikit-learn scipy numpy pytest "fastapi[standard]" uvicorn joblib httpx
 ```
 
 ---
@@ -158,7 +176,10 @@ ls *.csv
 
 ## Running the frontend
 
-The frontend is a React + Vite app located in the `frontend/` directory. It currently runs on mock data and does not require the backend or database to be set up.
+The frontend is a React + Vite app located in the `frontend/` directory. It connects to the live FastAPI backend, but ships with a **Demo Data** toggle so it can also be explored standalone without the backend or database.
+
+- **Demo Data on** (default): the UI renders bundled sample beers — useful for previewing the interface with no backend running.
+- **Demo Data off**: the UI calls the backend through `src/services/apiService.js` for live recommendations, beer details, and similar beers. Copy `frontend/.env.example` to `frontend/.env` to point at a non-default backend URL.
 
 ### Prerequisites — Node.js
 
@@ -216,6 +237,39 @@ The CF pipeline operates on the rating matrix entirely via sparse matrices, so i
 
 ---
 
+## Model Evaluation
+
+Run `py train_models.py` to train the models and see per-k RMSE on validation and test sets.
+The script evaluates k ∈ {5, 10, 20, 50} and selects the k with lowest validation RMSE.
+
+Artifacts are saved to `artifacts/` and loaded at server startup for fast inference.
+
+---
+
+## Real-Time Feedback Loop
+
+When a user rates a beer through the UI, the system updates recommendations in real time:
+
+1. **Immediate exclusion** — the rated beer is removed from all future recommendation responses for that user.
+2. **Heuristic score adjustment** — if the rating is high (≥ 4), similar beers get a 20% score boost. If low (≤ 2), similar beers get a 20% penalty. This shifts the recommendation ranking without recomputing the heavy SVD/TF-IDF matrices.
+
+The feedback state is held in memory (`backend/online_store.py`) and resets on server restart. This is by design — the offline `train_models.py` pipeline handles durable model updates.
+
+### API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/ratings` | Record a rating: `{"user_id": "...", "beer_id": "...", "rating": 5}` |
+
+Example:
+```powershell
+Invoke-RestMethod -Uri http://localhost:8000/ratings `
+  -Method Post -ContentType "application/json" `
+  -Body '{"user_id": "user_0001", "beer_id": "3947", "rating": 5}'
+```
+
+---
+
 ## Running the API server
 
 The FastAPI backend wires the CF, CB, and cold-start pipelines together into HTTP endpoints for the frontend.
@@ -243,6 +297,9 @@ On startup it loads the CF and CB pipelines (real CSVs if present, otherwise dem
 | `GET` | `/recommendations/group?group={group_ids}&rec_num={int}` | Hybrid CF + CB recommendations for a group of users<br>group_ids - string containing comma separated user ids<br>rec_num - optional parameter specifying the number of desired recommendations |
 | `GET` | `/quiz` | Serves the onboarding quiz config (`quiz_data.json`) |
 | `POST` | `/recommendations/cold-start` | Returns initial recommendations for a new user based on quiz answers |
+| `GET` | `/beers/{beer_id}` | Full metadata for a single beer |
+| `GET` | `/beers/similar/{beer_id}?n=10` | Similar beers by content similarity |
+| `POST` | `/ratings` | Record a beer rating for real-time recommendation updates |
 
 ### Cold-start flow (new users)
 
@@ -260,11 +317,17 @@ On startup it loads the CF and CB pipelines (real CSVs if present, otherwise dem
 
 ## Running the tests
 
+Unit tests (102 tests):
 ```powershell
 py -m pytest test_pipelines.py -v
 ```
 
-The test suite has 102 tests covering:
+Integration tests (requires trained models or CSV data):
+```powershell
+py -m pytest test_integration.py -v
+```
+
+The unit suite has 102 tests covering:
 - Dummy data generation (shape, value range, sparsity, reproducibility)
 - CF pipeline: scale detection, U/V matrix shapes, prediction range, `cf_recommend` no-overlap guarantee
 - CB pipeline: feature matrix, `similar_beers`, `cb_recommend` no-overlap guarantee, recommendation details

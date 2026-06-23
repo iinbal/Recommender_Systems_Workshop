@@ -7,8 +7,11 @@ import cold_start
 import pandas as pd
 import numpy as np
 
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sklearn.metrics.pairwise import cosine_similarity
+
+from backend.online_store import record_rating, get_excluded_ids, add_score_adjustments, get_score_adjustments
 
 
 QUIZ_DATA_PATH = Path(__file__).resolve().parent.parent / "quiz_data.json"
@@ -21,10 +24,70 @@ DEFAULT_RECOMMENDATION_NUM = 10
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+async def check_artifacts():
+    artifacts_dir = Path(__file__).resolve().parent.parent / "artifacts"
+    if not artifacts_dir.exists():
+        print("WARNING: artifacts/ directory not found. Pipelines are using on-the-fly computation.")
+        print("Run 'python train_models.py' to pre-compute model artifacts for faster startup.")
+    else:
+        print("artifacts/ directory found. Pipelines loaded pre-computed models.")
+
+
 @app.get("/")
 async def root():
     return {"message": "You shouldn't be here ;)"}
-    
+
+
+@app.get("/users/sample")
+async def get_sample_users(n: int = 5):
+    """Return user IDs that are valid in both CF and CB pipelines."""
+    cb_users = set(cb.train_df["username"].unique())
+    valid = [uid for uid in cf.user_ids if uid in cb_users]
+    return {"user_ids": valid[:n]}
+
+
+@app.get("/recommendations/group")
+async def get_group_recommend(group: str = "", rec_num: int = DEFAULT_RECOMMENDATION_NUM):
+    """
+    Returns a list of recommended beers for a given group
+
+    Parameters:
+    - group: Comma-separated string of user IDs (e.g., "user_1,user_2,user_3")
+
+    Returns:
+    - pd.Series: Beer IDs as index, final penalized group scores as values,
+                 sorted in descending order.
+    """
+    # Parse the comma-separated string into a clean list of user IDs
+    user_ids = [user_id.strip() for user_id in group.split(",")]
+
+    if not user_ids:
+        return "No users provided"
+
+    try:
+        # Assuming get_recommendations(user_id) returns a pd.Series
+        user_candidates = get_group_candidates(user_ids, RERANK_MULTIPLIER * rec_num)
+
+        # Apply reranking diversity
+        final_recommendations = rerank_recommendations(user_candidates, rec_num)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {
+            "recommended_ids": final_recommendations.index.tolist(),
+            "scores": final_recommendations.values.tolist()
+        }
+
 @app.get("/recommendations/{user_id}")
 async def get_recommendation(user_id: str, rec_num: int = DEFAULT_RECOMMENDATION_NUM):
     """
@@ -39,43 +102,17 @@ async def get_recommendation(user_id: str, rec_num: int = DEFAULT_RECOMMENDATION
     - List of scores for the beers
     """
 
-    hybrid_candidates = get_user_rec_candidates(user_id, rec_num * RERANK_MULTIPLIER)
+    try:
+        hybrid_candidates = get_user_rec_candidates(user_id, rec_num * RERANK_MULTIPLIER)
 
-    # Further refine our recommendations while using reranking to introduce diversity
-    selected_recommendations = rerank_recommendations(hybrid_candidates, rec_num)
+        # Further refine our recommendations while using reranking to introduce diversity
+        selected_recommendations = rerank_recommendations(hybrid_candidates, rec_num)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
-            "recommended_ids:": selected_recommendations.index.tolist(),
+            "recommended_ids": selected_recommendations.index.tolist(),
             "scores": selected_recommendations.values.tolist()
-        }
-
-@app.get("/group")
-async def get_group_recommend(group: str = "", rec_num: int = DEFAULT_RECOMMENDATION_NUM):
-    """
-    Returns a list of recommended beers for a given group
-    
-    Parameters:
-    - group: Comma-separated string of user IDs (e.g., "user_1,user_2,user_3")
-             
-    Returns:
-    - pd.Series: Beer IDs as index, final penalized group scores as values,
-                 sorted in descending order.
-    """
-    # Parse the comma-separated string into a clean list of user IDs
-    user_ids = [user_id.strip() for user_id in group.split(",")]
-    
-    if not user_ids:
-        return "No users provided"
-        
-    # Assuming get_recommendations(user_id) returns a pd.Series
-    user_candidates = get_group_candidates(user_ids, RERANK_MULTIPLIER * rec_num)
-    
-    # Apply reranking diversity
-    final_recommendations = rerank_recommendations(user_candidates, rec_num)
-
-    return {
-            "recommended_ids:": final_recommendations.index.tolist(),
-            "scores": final_recommendations.values.tolist()
         }
 
 @app.get("/quiz")
@@ -95,14 +132,136 @@ async def get_cold_start_recommendation(payload: dict = Body(...)):
     """
     quiz_answers = payload.get("answers", {})
 
-    recommendations = cold_start.get_cold_start_recommendations(
-        quiz_answers, DEFAULT_RECOMMENDATION_NUM
-    )
+    try:
+        recommendations = cold_start.get_cold_start_recommendations(
+            quiz_answers, DEFAULT_RECOMMENDATION_NUM
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
         "recommended_ids": recommendations.index.tolist(),
         "scores": recommendations.values.tolist(),
     }
+
+
+@app.post("/ratings")
+async def submit_rating(payload: dict = Body(...)):
+    """
+    Record a user's beer rating for real-time recommendation updates.
+
+    Mandatory: The rated beer is immediately excluded from future recommendations.
+    Bonus: If rating >= 4, similar beers get a score boost. If rating <= 2, they get a penalty.
+
+    Expected payload: {"user_id": "user_0001", "beer_id": "3947", "rating": 5}
+    """
+    user_id = payload.get("user_id")
+    beer_id = payload.get("beer_id")
+    rating = payload.get("rating")
+
+    if not all([user_id, beer_id, rating is not None]):
+        raise HTTPException(status_code=400, detail="user_id, beer_id, and rating are required")
+
+    rating = float(rating)
+
+    # Cast beer_id to match the pipeline's type (int for real data, str for demo)
+    col = cb.item_profiles["beer_id"]
+    if col.dtype != object:
+        try:
+            beer_id = col.dtype.type(beer_id)
+        except (ValueError, TypeError):
+            pass
+
+    # Mandatory: exclude this beer from future recommendations
+    record_rating(user_id, beer_id, rating)
+
+    # Bonus: heuristic score adjustments for similar beers
+    if beer_id in cb.beer_id_to_index or str(beer_id) in [str(k) for k in cb.beer_id_to_index]:
+        try:
+            lookup_id = beer_id
+            if beer_id not in cb.beer_id_to_index:
+                for key in cb.beer_id_to_index:
+                    if str(key) == str(beer_id):
+                        lookup_id = key
+                        break
+
+            similar = cb.similar_beers(lookup_id, n=5)
+            if rating >= 4:
+                multiplier = 1.2  # 20% boost
+            elif rating <= 2:
+                multiplier = 0.8  # 20% penalty
+            else:
+                multiplier = 1.0  # neutral
+
+            if multiplier != 1.0:
+                adjustments = {bid: multiplier for bid in similar.index}
+                add_score_adjustments(user_id, adjustments)
+        except (ValueError, KeyError):
+            pass  # beer not in catalog, skip adjustment
+
+    return {"status": "ok", "excluded": str(beer_id)}
+
+
+@app.get("/beers/{beer_id}")
+async def get_beer(beer_id: str):
+    """Return full metadata for a single beer."""
+    try:
+        col = cb.item_profiles["beer_id"]
+        if col.dtype != object:
+            try:
+                beer_id_cast = col.dtype.type(beer_id)
+            except (ValueError, TypeError):
+                beer_id_cast = beer_id
+        else:
+            beer_id_cast = beer_id
+        matches = cb.item_profiles[col == beer_id_cast]
+
+        if matches.empty:
+            raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
+
+        beer = matches.iloc[0]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {
+        "beer_id": str(beer["beer_id"]),
+        "beer_name": str(beer["beer_name"]),
+        "beer_style": str(beer["beer_style"]),
+        "beer_abv": float(beer["beer_abv"]),
+        "avg_overall_rating": float(beer.get("avg_overall_rating", 0)),
+        "avg_taste_rating": float(beer.get("avg_taste_rating", 0)),
+        "avg_aroma_rating": float(beer.get("avg_aroma_rating", 0)),
+        "avg_appearance_rating": float(beer.get("avg_appearance_rating", 0)),
+        "avg_palate_rating": float(beer.get("avg_palate_rating", 0)),
+        "total_reviews_count": int(beer.get("total_reviews_count", 0)),
+    }
+
+
+@app.get("/beers/similar/{beer_id}")
+async def get_similar_beers(beer_id: str, n: int = DEFAULT_RECOMMENDATION_NUM):
+    """Return beers similar to the given beer."""
+    try:
+        lookup_id = beer_id
+        if beer_id not in cb.beer_id_to_index:
+            for key in cb.beer_id_to_index:
+                if str(key) == beer_id:
+                    lookup_id = key
+                    break
+            else:
+                raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
+
+        similar = cb.similar_beers(lookup_id, n=n)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {
+        "beer_id": beer_id,
+        "similar": [
+            {"beer_id": bid, "score": float(score)}
+            for bid, score in similar.items()
+        ],
+    }
+
 
 def hybridize_candidates(cf_scores: pd.Series, cb_scores: pd.Series, candidate_num: int = 1) -> pd.Series:
     """
@@ -152,11 +311,38 @@ def get_user_rec_candidates(user_id: str, candidate_num: int) -> pd.Series:
     """
     # Get extra recommendation candidates from the 2 pipelines
     expanded_candidate_num = HYBRID_MULTIPLIER * candidate_num
-    cb_candidates = cb.cb_recommend(user_id, expanded_candidate_num)
-    cf_candidates = cf.cf_recommend(user_id, expanded_candidate_num)
 
-    # Narrow down the best candidates based on the hybrid scores
-    hybrid_candidates = hybridize_candidates(cf_candidates, cb_candidates, candidate_num)
+    # Get runtime exclusions from the online store
+    exclude = get_excluded_ids(user_id)
+
+    cf_candidates = cb_candidates = None
+    try:
+        cf_candidates = cf.cf_recommend(user_id, expanded_candidate_num, exclude_ids=exclude)
+    except ValueError:
+        pass
+    try:
+        cb_candidates = cb.cb_recommend(user_id, expanded_candidate_num, exclude_ids=exclude)
+    except ValueError:
+        pass
+
+    if cf_candidates is None and cb_candidates is None:
+        raise ValueError(f"User '{user_id}' not found in either recommendation pipeline")
+
+    if cf_candidates is not None and cb_candidates is not None:
+        hybrid_candidates = hybridize_candidates(cf_candidates, cb_candidates, candidate_num)
+    elif cf_candidates is not None:
+        hybrid_candidates = cf_candidates.nlargest(candidate_num)
+    else:
+        hybrid_candidates = cb_candidates.nlargest(candidate_num)
+
+    # Apply heuristic score adjustments from the online store
+    adjustments = get_score_adjustments(user_id)
+    if adjustments:
+        for beer_id, multiplier in adjustments.items():
+            if beer_id in hybrid_candidates.index:
+                hybrid_candidates.loc[beer_id] *= multiplier
+        # Re-sort after adjustments
+        hybrid_candidates = hybrid_candidates.sort_values(ascending=False)
 
     return hybrid_candidates
 

@@ -639,11 +639,11 @@ useEffect(() => {
           <>
             {activeTab === 'home' && (
               activeData.swimlanes.map((lane) => (
-                <Swimlane 
-                  key={lane.id} 
-                  title={lane.title} 
-                  beers={lane.beers} 
-                  onCardClick={(beer) => setSelectedBeer(beer)} 
+                <Swimlane
+                  key={lane.id}
+                  title={lane.title}
+                  beers={lane.beers.filter(b => !userRatings[b.id])}
+                  onCardClick={(beer) => setSelectedBeer(beer)}
                   favorites={favorites}
                   onToggleFav={toggleFavorite}
                 />
@@ -651,17 +651,17 @@ useEffect(() => {
             )}
 
             {activeTab === 'favorites' && (
-              <FavoritesPage 
+              <FavoritesPage
                 allBeers={allUniqueBeers}
                 favorites={favorites}
                 onCardClick={(beer) => setSelectedBeer(beer)}
                 onToggleFav={toggleFavorite}
               />
             )}
-            
+
             {activeTab === 'discover' && (
-              <DiscoverPage 
-                allBeers={allUniqueBeers}
+              <DiscoverPage
+                allBeers={allUniqueBeers.filter(b => !userRatings[b.id])}
                 favorites={favorites}
                 onCardClick={(beer) => setSelectedBeer(beer)}
                 onToggleFav={toggleFavorite}

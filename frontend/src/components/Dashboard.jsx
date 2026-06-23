@@ -147,7 +147,8 @@ const BeerModal = ({ beer, onClose, userRatingData, onSubmitReview, onCardClick 
             <h2 style={{ margin: 0 }}>{beer.name}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#E67E22" stroke="#E67E22"><path d="M10 2v5l-2 3v10a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-10l-2-3V2z"></path><path d="M10 2h4"></path></svg>
-              {beer.rating || "New"}
+              {typeof beer.rating === 'number' ? beer.rating.toFixed(1) : "New"}
+              <span style={{ fontSize: '0.7rem', fontWeight: 'normal', color: '#aaa' }}>Avg Rating</span>
             </div>
           </div>
 
@@ -249,7 +250,7 @@ const BeerCard = ({ beer, onCardClick, isFav, onToggleFav }) => {
             </div>
             <div className="card-rating">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#E67E22" stroke="#E67E22" strokeWidth="2"><path d="M10 2v5l-2 3v10a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-10l-2-3V2z"></path><path d="M10 2h4"></path></svg>
-              {beer.rating || "N/A"}
+              {typeof beer.rating === 'number' ? beer.rating.toFixed(1) : "N/A"}
             </div>
           </div>
 

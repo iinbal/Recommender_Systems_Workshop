@@ -48,6 +48,11 @@ export async function getColdStartRecommendations(answers) {
   });
 }
 
+// GET /users/sample?n={n}
+export async function getSampleUsers(n = 5) {
+  return request(`/users/sample?n=${n}`);
+}
+
 // POST /ratings
 export async function submitRating(userId, beerId, rating) {
   return request('/ratings', {

@@ -6,3 +6,4 @@ __pycache__/
 run_log.txt
 docs/agent_team_ref.md
 artifacts/
+.env

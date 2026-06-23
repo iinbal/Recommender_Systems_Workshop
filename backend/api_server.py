@@ -26,7 +26,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,7 +46,15 @@ async def check_artifacts():
 @app.get("/")
 async def root():
     return {"message": "You shouldn't be here ;)"}
-    
+
+
+@app.get("/users/sample")
+async def get_sample_users(n: int = 5):
+    """Return a small list of valid user IDs for the frontend."""
+    sample = list(cf.user_ids[:n])
+    return {"user_ids": sample}
+
+
 @app.get("/recommendations/group")
 async def get_group_recommend(group: str = "", rec_num: int = DEFAULT_RECOMMENDATION_NUM):
     """
@@ -65,11 +73,14 @@ async def get_group_recommend(group: str = "", rec_num: int = DEFAULT_RECOMMENDA
     if not user_ids:
         return "No users provided"
 
-    # Assuming get_recommendations(user_id) returns a pd.Series
-    user_candidates = get_group_candidates(user_ids, RERANK_MULTIPLIER * rec_num)
+    try:
+        # Assuming get_recommendations(user_id) returns a pd.Series
+        user_candidates = get_group_candidates(user_ids, RERANK_MULTIPLIER * rec_num)
 
-    # Apply reranking diversity
-    final_recommendations = rerank_recommendations(user_candidates, rec_num)
+        # Apply reranking diversity
+        final_recommendations = rerank_recommendations(user_candidates, rec_num)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
             "recommended_ids": final_recommendations.index.tolist(),
@@ -90,10 +101,13 @@ async def get_recommendation(user_id: str, rec_num: int = DEFAULT_RECOMMENDATION
     - List of scores for the beers
     """
 
-    hybrid_candidates = get_user_rec_candidates(user_id, rec_num * RERANK_MULTIPLIER)
+    try:
+        hybrid_candidates = get_user_rec_candidates(user_id, rec_num * RERANK_MULTIPLIER)
 
-    # Further refine our recommendations while using reranking to introduce diversity
-    selected_recommendations = rerank_recommendations(hybrid_candidates, rec_num)
+        # Further refine our recommendations while using reranking to introduce diversity
+        selected_recommendations = rerank_recommendations(hybrid_candidates, rec_num)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
             "recommended_ids": selected_recommendations.index.tolist(),
@@ -117,9 +131,12 @@ async def get_cold_start_recommendation(payload: dict = Body(...)):
     """
     quiz_answers = payload.get("answers", {})
 
-    recommendations = cold_start.get_cold_start_recommendations(
-        quiz_answers, DEFAULT_RECOMMENDATION_NUM
-    )
+    try:
+        recommendations = cold_start.get_cold_start_recommendations(
+            quiz_answers, DEFAULT_RECOMMENDATION_NUM
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
         "recommended_ids": recommendations.index.tolist(),
@@ -187,20 +204,23 @@ async def submit_rating(payload: dict = Body(...)):
 @app.get("/beers/{beer_id}")
 async def get_beer(beer_id: str):
     """Return full metadata for a single beer."""
-    col = cb.item_profiles["beer_id"]
-    if col.dtype != object:
-        try:
-            beer_id_cast = col.dtype.type(beer_id)
-        except (ValueError, TypeError):
+    try:
+        col = cb.item_profiles["beer_id"]
+        if col.dtype != object:
+            try:
+                beer_id_cast = col.dtype.type(beer_id)
+            except (ValueError, TypeError):
+                beer_id_cast = beer_id
+        else:
             beer_id_cast = beer_id
-    else:
-        beer_id_cast = beer_id
-    matches = cb.item_profiles[col == beer_id_cast]
+        matches = cb.item_profiles[col == beer_id_cast]
 
-    if matches.empty:
-        raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
+        if matches.empty:
+            raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
 
-    beer = matches.iloc[0]
+        beer = matches.iloc[0]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
         "beer_id": str(beer["beer_id"]),
@@ -219,16 +239,19 @@ async def get_beer(beer_id: str):
 @app.get("/beers/similar/{beer_id}")
 async def get_similar_beers(beer_id: str, n: int = DEFAULT_RECOMMENDATION_NUM):
     """Return beers similar to the given beer."""
-    lookup_id = beer_id
-    if beer_id not in cb.beer_id_to_index:
-        for key in cb.beer_id_to_index:
-            if str(key) == beer_id:
-                lookup_id = key
-                break
-        else:
-            raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
+    try:
+        lookup_id = beer_id
+        if beer_id not in cb.beer_id_to_index:
+            for key in cb.beer_id_to_index:
+                if str(key) == beer_id:
+                    lookup_id = key
+                    break
+            else:
+                raise HTTPException(status_code=404, detail=f"Beer '{beer_id}' not found")
 
-    similar = cb.similar_beers(lookup_id, n=n)
+        similar = cb.similar_beers(lookup_id, n=n)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
         "beer_id": beer_id,

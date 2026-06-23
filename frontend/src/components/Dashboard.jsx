@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import './Dashboard.css';
 import logo from '../assets/logo.png';
-import { getRecommendations, getBeerDetails, getSimilarBeers, submitRating } from '../services/apiService';
-
-const LIVE_USER_ID = 'user_0001';
+import { getRecommendations, getBeerDetails, getSimilarBeers, submitRating, getSampleUsers } from '../services/apiService';
 
 const fallbackImage = (name) =>
   `https://placehold.co/200x300/1a1a2e/e67e22?text=${encodeURIComponent(name || 'Beer')}`;
@@ -503,6 +501,7 @@ const RecommenderDashboard = ({ data, onLogout }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [ratingVersion, setRatingVersion] = useState(0);
+  const [liveUserId, setLiveUserId] = useState(null);
 
   // NEW: The Fetch Hook that triggers when Demo Mode is turned off
 useEffect(() => {
@@ -513,7 +512,14 @@ useEffect(() => {
         setIsLoading(true);
         setApiError(null);
         try {
-          const { recommended_ids, scores } = await getRecommendations(LIVE_USER_ID, 20);
+          let userId = liveUserId;
+          if (!userId) {
+            const { user_ids } = await getSampleUsers(1);
+            userId = user_ids[0];
+            if (!cancelled) setLiveUserId(userId);
+          }
+
+          const { recommended_ids, scores } = await getRecommendations(userId, 20);
           const details = await Promise.all(
             recommended_ids.map((id) => getBeerDetails(id))
           );
@@ -561,7 +567,7 @@ useEffect(() => {
 
     if (!isDemoMode) {
       try {
-        await submitRating(LIVE_USER_ID, beerId, rating);
+        await submitRating(liveUserId, beerId, rating);
       } catch {
         // Non-critical — local state was already updated
       }

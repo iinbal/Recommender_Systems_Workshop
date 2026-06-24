@@ -29,9 +29,41 @@ const mapBeerToCard = (beer, score) => ({
   image_url: fallbackImage(beer.beer_name),
 });
 
+const GroupSwitcher = ({ partyMembers, onApplyMembers, friendDatabase }) => {
+  const [draftMembers, setDraftMembers] = useState(partyMembers);
+
+  return (
+    <div style={{ backgroundColor: '#222', padding: '0.6rem 1.2rem', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '0.8rem', border: '1px solid #333' }}>
+      <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Matching for:</span>
+      <div style={{ display: 'flex', gap: '0.4rem' }}>
+        {draftMembers.map(m => (
+          <span key={m} style={{ backgroundColor: '#E67E22', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '15px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            {m}
+            {m !== 'Me' && <button onClick={() => setDraftMembers(draftMembers.filter(p => p !== m))} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0 }}>&times;</button>}
+          </span>
+        ))}
+      </div>
+      <select 
+        onChange={(e) => { if(e.target.value && !draftMembers.includes(e.target.value)) setDraftMembers([...draftMembers, e.target.value]); e.target.value = ''; }}
+        style={{ background: 'none', border: 'none', color: '#E67E22', fontWeight: 'bold', cursor: 'pointer', outline: 'none' }}
+      >
+        <option value="">+ Add</option>
+        {friendDatabase.filter(f => !draftMembers.includes(f)).map(f => <option key={f} value={f}>{f}</option>)}
+      </select>
+      <button 
+        onClick={() => onApplyMembers(draftMembers)}
+        style={{ backgroundColor: '#fff', color: '#000', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '15px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+      >
+        Apply
+      </button>
+    </div>
+  );
+};
+
 // 1. Updated Navbar with toggle
 const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showDiscoverMenu, setShowDiscoverMenu] = useState(false);
 
   return (
     <nav className="navbar">
@@ -45,13 +77,58 @@ const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }
       </div>
       
       <div className="navbar-right">
+        
+        {/* 1. Discover */}
+        <div 
+          className="nav-item dropdown-container"
+          onMouseEnter={() => setShowDiscoverMenu(true)}
+          onMouseLeave={() => setShowDiscoverMenu(false)}
+          style={{ position: 'relative', display: 'inline-block' }}
+        >
+          <button 
+            className={`nav-link ${['discover', 'beer-lists', 'build-six-pack'].includes(activeTab) ? 'active' : ''}`} 
+            onClick={() => setActiveTab('discover')}
+          >
+            Discover
+          </button>
+
+          {showDiscoverMenu && (
+            <div 
+              style={{ 
+                position: 'absolute', 
+                top: '100%', 
+                left: '-20px', 
+                backgroundColor: '#1a1a1a', 
+                border: '1px solid #333', 
+                borderRadius: '6px', 
+                padding: '0.5rem 0',
+                minWidth: '180px',
+                zIndex: 1000,
+                boxShadow: '0 8px 16px rgba(0,0,0,0.8)'
+              }}
+            >
+              <div className="dropdown-item" style={{ fontWeight: 'bold' }} onClick={() => { setActiveTab('discover'); setShowDiscoverMenu(false); }}>
+                Explore
+              </div>
+              <div className="dropdown-item" style={{ fontWeight: 'bold' }} onClick={() => { setActiveTab('beer-lists'); setShowDiscoverMenu(false); }}>
+                Beer Lists
+              </div>
+              <div className="dropdown-item" style={{ fontWeight: 'bold' }} onClick={() => { setActiveTab('build-six-pack'); setShowDiscoverMenu(false); }}>
+                Build a 6-Pack
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 2. Favorites */}
         <button className={`nav-link ${activeTab === 'favorites' ? 'active' : ''}`} onClick={() => setActiveTab('favorites')}>Favorites</button>
-        <button className={`nav-link ${activeTab === 'discover' ? 'active' : ''}`} onClick={() => setActiveTab('discover')}>Discover</button>
+        
+        {/* 3. Shared With Me */}
         <button className="nav-link">Shared With Me</button>
         <button className={`nav-link ${activeTab === 'top50' ? 'active' : ''}`} onClick={() => setActiveTab('top50')}>Top 50</button>
         <button className={`nav-link ${activeTab === 'adventurous' ? 'active' : ''}`} onClick={() => setActiveTab('adventurous')}>Adventurous</button>
 
-        {/* NEW: Demo Toggle Switch */}
+        {/* Demo Toggle Switch */}
         <div className="demo-toggle-container">
           <span className={`demo-label ${isDemoMode ? 'active' : ''}`}>Demo Data</span>
           <label className="switch">
@@ -64,6 +141,7 @@ const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }
           </label>
         </div>
 
+        {/* Profile Hamburger Menu */}
         <div className="profile-menu-container">
           <button className="hamburger-menu" onClick={() => setDropdownOpen(!dropdownOpen)}>
             <span></span>
@@ -326,6 +404,553 @@ const FavoritesPage = ({ allBeers, favorites, onCardClick, onToggleFav }) => {
   );
 };
 
+// --- UPDATED: Beer Lists Page Component ---
+const BeerListsPage = ({ allBeers = [] }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListSection, setNewListSection] = useState('');
+  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
+
+  // NEW: State for the Delete Confirmation Modal
+  const [listToDelete, setListToDelete] = useState(null);
+
+  const [activeList, setActiveList] = useState(null); 
+  const [showAddBeerModal, setShowAddBeerModal] = useState(false);
+  const [beerSearchQuery, setBeerSearchQuery] = useState('');
+
+  const [existingSections, setExistingSections] = useState([
+    "Hoppy & Bitter", "BBQ Pairings", "Winter Stouts", "Gifts for Friends"
+  ]);
+
+  const [myLists, setMyLists] = useState([
+    { id: 'm1', title: "My Favorite IPAs", beers: [], icon: '⭐', color: '#333333', section: 'Hoppy & Bitter' },
+    { id: 'm2', title: "BBQ Weekend", beers: [], icon: '🍔', color: '#333333', section: 'BBQ Pairings' }
+  ]);
+
+  const curatedLists = [
+    { id: 'c1', title: 'Top 50 Rated All-Time', beers: [], icon: '🏆', color: '#B8860B' },
+    { id: 'c2', title: 'Hoppy Heaven (Top IPAs)', beers: [], icon: '🌿', color: '#2E8B57' },
+  ];
+
+  // --- ACTIONS ---
+
+  const handleCreateSubmit = () => {
+    if (!newListName.trim()) return;
+    const finalSection = newListSection.trim() || "Uncategorized";
+    if (!existingSections.includes(finalSection)) setExistingSections([...existingSections, finalSection]);
+
+    const newList = {
+      id: `m-${Date.now()}`,
+      title: newListName.trim(),
+      beers: [], 
+      icon: '🍻',
+      color: '#333333',
+      section: finalSection
+    };
+
+    setMyLists([...myLists, newList]);
+    setIsModalOpen(false);
+    setNewListName('');
+    setNewListSection('');
+  };
+
+  // 1. Triggers the warning popup instead of instant deletion
+  const handleDeleteClick = (listId, e) => {
+    e.stopPropagation(); 
+    setListToDelete(listId);
+  };
+
+  // 2. Executes the actual deletion and section cleanup
+  const confirmDeleteList = () => {
+    if (!listToDelete) return;
+
+    // Find the list we are about to delete to check its section
+    const listToRemove = myLists.find(l => l.id === listToDelete);
+    const updatedLists = myLists.filter(list => list.id !== listToDelete);
+    
+    setMyLists(updatedLists);
+    if (activeList?.id === listToDelete) setActiveList(null);
+
+    // FEATURE: Auto-Cleanup the Section Dropdown
+    if (listToRemove && listToRemove.section) {
+      // Check if any *remaining* lists still use this section
+      const sectionStillInUse = updatedLists.some(l => l.section === listToRemove.section);
+      if (!sectionStillInUse) {
+        // If not, remove it from the dropdown options!
+        setExistingSections(prev => prev.filter(s => s !== listToRemove.section));
+      }
+    }
+
+    setListToDelete(null); // Close the warning modal
+  };
+
+  const handleAddBeerToList = (beer) => {
+    const updatedLists = myLists.map(l => {
+      if (l.id === activeList.id && !l.beers.includes(beer.id)) {
+        return { ...l, beers: [...l.beers, beer.id] };
+      }
+      return l;
+    });
+    setMyLists(updatedLists);
+    setActiveList({ ...activeList, beers: [...activeList.beers, beer.id] });
+  };
+
+  const handleRemoveBeerFromList = (beerId) => {
+    const updatedLists = myLists.map(l => {
+      if (l.id === activeList.id) {
+        return { ...l, beers: l.beers.filter(id => id !== beerId) };
+      }
+      return l;
+    });
+    setMyLists(updatedLists);
+    setActiveList({ ...activeList, beers: activeList.beers.filter(id => id !== beerId) });
+  };
+
+  // --- SUB-COMPONENTS ---
+
+  const ListCard = ({ id, title, beers = [], icon, color, isAddButton, isCustom }) => (
+    <div 
+      style={{
+        backgroundColor: color || '#1a1a1a',
+        border: isAddButton ? '2px dashed #666' : '1px solid #333',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        minHeight: '160px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        cursor: 'pointer',
+        transition: 'transform 0.2s ease, borderColor 0.2s ease',
+        alignItems: isAddButton ? 'center' : 'flex-start',
+        position: 'relative'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+      onClick={() => {
+        if (isAddButton) setIsModalOpen(true);
+        else {
+          const listData = myLists.find(l => l.id === id) || curatedLists.find(l => l.id === id);
+          setActiveList(listData);
+        }
+      }}
+    >
+      {/* UPDATED: Delete Button now calls handleDeleteClick */}
+      {isCustom && !isAddButton && (
+        <button 
+          onClick={(e) => handleDeleteClick(id, e)}
+          style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#ff4d4d', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.7 }}
+          title="Delete List"
+        >
+          ✖
+        </button>
+      )}
+
+      {isAddButton ? (
+        <>
+          <div style={{ fontSize: '3rem', color: '#666', marginTop: '1rem' }}>+</div>
+          <h3 style={{ color: '#666', margin: 0, marginTop: 'auto' }}>Create New List</h3>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: '2.5rem' }}>{icon}</div>
+          <div>
+            <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>{title}</h3>
+            <span style={{ color: '#aaa', fontSize: '0.9rem' }}>{beers.length} Beers</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // --- RENDER LOGIC ---
+
+  if (activeList) {
+    const listBeers = allBeers.filter(b => activeList.beers.includes(b.id));
+    const availableBeersToAdd = allBeers.filter(b => !activeList.beers.includes(b.id) && b.name.toLowerCase().includes(beerSearchQuery.toLowerCase()));
+
+    return (
+      <div style={{ animation: 'fadeIn 0.3s ease' }}>
+        <button onClick={() => setActiveList(null)} style={{ background: 'none', border: 'none', color: '#E67E22', fontSize: '1rem', cursor: 'pointer', marginBottom: '1rem', fontWeight: 'bold' }}>
+          ← Back to Lists
+        </button>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '3rem', background: 'linear-gradient(180deg, #333333 0%, #141414 100%)', padding: '2rem', borderRadius: '12px' }}>
+          <div style={{ fontSize: '5rem', backgroundColor: activeList.color, width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+            {activeList.icon}
+          </div>
+          <div>
+            <span style={{ textTransform: 'uppercase', fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '2px', color: '#aaa' }}>{activeList.section || 'Playlist'}</span>
+            <h1 style={{ fontSize: '3.5rem', margin: '0.5rem 0', color: '#fff' }}>{activeList.title}</h1>
+            <p style={{ color: '#ccc', margin: 0 }}>{activeList.beers.length} beers in this list</p>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <button 
+            onClick={() => setShowAddBeerModal(true)}
+            style={{ backgroundColor: '#E67E22', color: '#fff', border: 'none', padding: '0.8rem 2rem', borderRadius: '30px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(230, 126, 34, 0.3)' }}
+          >
+            + Add Beers
+          </button>
+        </div>
+
+        {listBeers.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
+            <h3>This list is empty.</h3>
+            <p>Click "Add Beers" above to start building your collection.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {listBeers.map((beer, index) => (
+              <div key={beer.id} style={{ display: 'flex', alignItems: 'center', padding: '1rem', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #333' }}>
+                <span style={{ color: '#666', width: '30px', fontWeight: 'bold' }}>{index + 1}</span>
+                <img src={beer.image_url} alt={beer.name} style={{ width: '40px', height: '40px', borderRadius: '4px', marginRight: '1rem', objectFit: 'cover' }} />
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ margin: 0, color: '#fff' }}>{beer.name}</h4>
+                  <span style={{ color: '#888', fontSize: '0.9rem' }}>{beer.style} • {beer.abv}%</span>
+                </div>
+                <button 
+                  onClick={() => handleRemoveBeerFromList(beer.id)}
+                  style={{ background: 'none', border: '1px solid #666', color: '#aaa', padding: '0.4rem 1rem', borderRadius: '20px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={(e) => { e.target.style.borderColor = '#ff4d4d'; e.target.style.color = '#ff4d4d'; }}
+                  onMouseLeave={(e) => { e.target.style.borderColor = '#666'; e.target.style.color = '#aaa'; }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showAddBeerModal && (
+          <div className="modal-backdrop" onClick={() => setShowAddBeerModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', padding: '2rem', width: '90%', maxWidth: '500px', borderRadius: '12px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 style={{ margin: 0, color: '#fff' }}>Add to {activeList.title}</h2>
+                <button onClick={() => setShowAddBeerModal(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>✖</button>
+              </div>
+              <input 
+                type="text" 
+                placeholder="Search database..." 
+                value={beerSearchQuery}
+                onChange={e => setBeerSearchQuery(e.target.value)}
+                style={{ padding: '0.8rem', borderRadius: '6px', border: 'none', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}
+              />
+              <div style={{ overflowY: 'auto', flex: 1, display: 'grid', gap: '0.5rem' }}>
+                {availableBeersToAdd.map(beer => (
+                  <div key={beer.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', backgroundColor: '#222', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <img src={beer.image_url} alt={beer.name} style={{ width: '30px', height: '30px', borderRadius: '4px' }} />
+                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>{beer.name}</span>
+                    </div>
+                    <button onClick={() => handleAddBeerToList(beer)} style={{ backgroundColor: '#E67E22', border: 'none', color: '#fff', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Add
+                    </button>
+                  </div>
+                ))}
+                {availableBeersToAdd.length === 0 && <p style={{ color: '#666', textAlign: 'center' }}>No beers found.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <h2 className="page-title">Beer Lists</h2>
+      
+      <div style={{ marginBottom: '3rem' }}>
+        <h3 style={{ color: '#E67E22', borderBottom: '1px solid #333', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Curated by RuBeer</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+          {curatedLists.map(list => <ListCard key={list.id} {...list} isCustom={false} />)}
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ color: '#E67E22', borderBottom: '1px solid #333', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>My Custom Lists</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+          {myLists.map(list => <ListCard key={list.id} {...list} isCustom={true} />)}
+          <ListCard isAddButton={true} />
+        </div>
+      </div>
+
+      {/* Creation Modal */}
+      {isModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ backgroundColor: '#1a1a1a', border: '2px solid #E67E22', padding: '2rem', maxWidth: '400px', width: '90%', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxSizing: 'border-box', overflow: 'visible' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, color: '#E67E22', fontSize: '1.5rem' }}>Create New List</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#E67E22', fontSize: '2rem', cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#E67E22' }}>List Name:</label>
+              <input type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: 'none', outline: 'none', backgroundColor: '#fff', color: '#000', fontSize: '1rem', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#E67E22' }}>Section:</label>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input type="text" value={newListSection} onChange={(e) => setNewListSection(e.target.value)} onFocus={() => setShowSectionDropdown(true)} onBlur={() => setShowSectionDropdown(false)} placeholder="Type or select ->" style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: 'none', outline: 'none', backgroundColor: '#fff', color: '#000', fontSize: '1rem', boxSizing: 'border-box' }} />
+                {showSectionDropdown && (
+                  <div style={{ position: 'absolute', top: '0', left: 'calc(100% + 15px)', width: '200px', backgroundColor: '#2a2a2a', border: '1px solid #E67E22', borderRadius: '6px', zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                    {existingSections.map((section, idx) => (
+                      <div key={idx} onMouseDown={(e) => { e.preventDefault(); setNewListSection(section); setShowSectionDropdown(false); }} style={{ padding: '0.8rem 1rem', color: '#fff', cursor: 'pointer', borderBottom: idx === existingSections.length - 1 ? 'none' : '1px solid #444', transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.target.style.backgroundColor = '#E67E22'} onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}>{section}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button onClick={handleCreateSubmit} disabled={!newListName.trim()} style={{ width: '100%', padding: '1rem', border: 'none', borderRadius: '6px', backgroundColor: newListName.trim() ? '#E67E22' : '#333', color: newListName.trim() ? '#fff' : '#666', fontWeight: 'bold', fontSize: '1.1rem', cursor: newListName.trim() ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s', marginTop: '0.5rem', boxSizing: 'border-box' }}>Save List</button>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Safe Delete Confirmation Modal */}
+      {listToDelete && (
+        <div className="modal-backdrop" onClick={() => setListToDelete(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ backgroundColor: '#1a1a1a', border: '1px solid #ff4d4d', padding: '2rem', width: '90%', maxWidth: '400px', borderRadius: '12px', textAlign: 'center' }}>
+            <h2 style={{ color: '#fff', marginTop: 0 }}>Delete this list?</h2>
+            <p style={{ color: '#aaa', marginBottom: '2rem' }}>This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button onClick={() => setListToDelete(null)} style={{ padding: '0.8rem 1.5rem', borderRadius: '6px', border: '1px solid #666', background: 'transparent', color: '#fff', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={confirmDeleteList} style={{ padding: '0.8rem 1.5rem', borderRadius: '6px', border: 'none', backgroundColor: '#ff4d4d', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- NEW: Build a 6-Pack Page Component ---
+const BuildSixPackPage = ({ allBeers = [], onCardClick }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedPack, setGeneratedPack] = useState(null);
+  
+  const [packCount, setPackCount] = useState(1);
+  const [partyMembers, setPartyMembers] = useState(['Me']);
+  const [selectedFriend, setSelectedFriend] = useState('');
+  
+  const friendDatabase = ["Alex (Lager Lover)", "Sarah (Hops Fanatic)", "David (Stout Guy)", "Emily (Sour Queen)"];
+
+  const fallbackBeers = [
+    { id: 'f1', name: 'Cosmic IPA', style: 'IPA', abv: 6.5, image_url: 'https://images.unsplash.com/photo-1575037614876-c38db4ce845d?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 'f2', name: 'Midnight Stout', style: 'Stout', abv: 8.0, image_url: 'https://images.unsplash.com/photo-1585228351543-080ed8586071?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 'f3', name: 'Sunny Pilsner', style: 'Pilsner', abv: 5.0, image_url: 'https://images.unsplash.com/photo-1518176258769-f227c798150e?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 'f4', name: 'Hazy Horizon', style: 'NEIPA', abv: 7.2, image_url: 'https://images.unsplash.com/photo-1657223067332-901ba1df2172?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 'f5', name: 'Amber Echo', style: 'Amber Ale', abv: 5.5, image_url: 'https://images.unsplash.com/photo-1600174095431-7e828135da17?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 'f6', name: 'Crisp Cider', style: 'Cider', abv: 4.5, image_url: 'https://images.unsplash.com/photo-1552675979-994c921df4ee?auto=format&fit=crop&q=80&w=200&h=200' },
+  ];
+
+  const handleAddFriend = (e) => {
+    const friend = e.target.value;
+    if (friend && !partyMembers.includes(friend)) {
+      setPartyMembers([...partyMembers, friend]);
+    }
+    setSelectedFriend('');
+  };
+
+  const removeFriend = (friendToRemove) => {
+    if (friendToRemove === 'Me') return; 
+    setPartyMembers(partyMembers.filter(f => f !== friendToRemove));
+  };
+
+  const handleGenerate = () => {
+    setGeneratedPack(null);
+    setIsGenerating(true);
+
+    setTimeout(() => {
+      const totalBeersNeeded = packCount * 6;
+      let sourceBeers = allBeers.length > 5 ? [...allBeers] : [...fallbackBeers];
+      
+      while (sourceBeers.length < totalBeersNeeded) {
+        sourceBeers = [...sourceBeers, ...sourceBeers];
+      }
+
+      const shuffled = sourceBeers.sort(() => 0.5 - Math.random());
+      const selectedBeers = shuffled.slice(0, totalBeersNeeded);
+      
+      setGeneratedPack(selectedBeers);
+      setIsGenerating(false);
+    }, 1500);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <style>{`
+        @keyframes dropIn {
+          0% { transform: translateY(-100px); opacity: 0; }
+          60% { transform: translateY(10px); opacity: 1; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pulseGlow {
+          0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4); }
+          70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+        }
+        .bottle-slot {
+          opacity: 0;
+          animation: dropIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          transition: transform 0.2s ease;
+        }
+        .bottle-slot:hover {
+          transform: scale(1.05);
+        }
+      `}</style>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <h2 className="page-title" style={{ marginBottom: '0.2rem' }}>Build a 6-Pack</h2>
+        <p style={{ fontStyle: 'italic', color: '#888', margin: 0, fontSize: '1.2rem' }}>
+          "Abs are made in the Gym, but these 6-packs are generated by algorithms."
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        
+        <div style={{ flex: '1 1 60%', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          
+          {Array.from({ length: packCount }).map((_, packIndex) => (
+            <div key={packIndex} style={{ 
+              backgroundColor: '#1a1a1a', 
+              borderRadius: '12px', 
+              padding: '2rem', 
+              border: '2px solid #333',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              
+              {packCount > 1 && (
+                <h3 style={{ margin: '0 0 1.5rem 0', color: '#fff', fontSize: '1.2rem', textAlign: 'center' }}>
+                  6-Pack #{packIndex + 1}
+                </h3>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', position: 'relative', flex: 1 }}>
+                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', backgroundColor: '#333', zIndex: 0 }}></div>
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: '33.3%', width: '4px', backgroundColor: '#333', zIndex: 0 }}></div>
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: '66.6%', width: '4px', backgroundColor: '#333', zIndex: 0 }}></div>
+
+                {[0, 1, 2, 3, 4, 5].map((index) => {
+                  const absoluteIndex = (packIndex * 6) + index;
+                  const beer = generatedPack ? generatedPack[absoluteIndex] : null;
+                  
+                  return (
+                    <div key={index} style={{ backgroundColor: '#222', borderRadius: '8px', height: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 1, border: '1px solid #444', overflow: 'hidden', position: 'relative' }}>
+                      {isGenerating && (
+                        <div style={{ color: '#E67E22', animation: 'pulseGlow 1.5s infinite', borderRadius: '50%', width: '30px', height: '30px', border: '2px solid #E67E22', borderTopColor: 'transparent' }} className="spinner"></div>
+                      )}
+                      
+                      {beer && !isGenerating && (
+                        <div 
+                          className="bottle-slot" 
+                          onClick={() => onCardClick(beer)} // <-- Triggers the modal!
+                          style={{ animationDelay: `${absoluteIndex * 0.1}s`, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                        >
+                          <img src={beer.image_url} alt={beer.name} style={{ width: '100%', height: '110px', objectFit: 'cover' }} />
+                          <div style={{ padding: '0.5rem', textAlign: 'center', backgroundColor: '#111', flex: 1 }}>
+                            <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{beer.name}</h4>
+                            <span style={{ fontSize: '0.7rem', color: '#E67E22' }}>{beer.style}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!beer && !isGenerating && (
+                        <span style={{ color: '#444', fontSize: '2rem', fontWeight: 'bold' }}>{index + 1}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {generatedPack && !isGenerating && (
+            <div style={{ backgroundColor: '#222', padding: '1.5rem', borderRadius: '8px', borderLeft: '4px solid #E67E22', animation: 'dropIn 0.5s ease forwards', animationDelay: '1s', opacity: 0 }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: '#fff', fontSize: '1.2rem' }}>Algorithm Report</h4>
+              <p style={{ margin: 0, fontSize: '1rem', color: '#aaa' }}>
+                Blended profiles for <strong style={{ color: '#fff' }}>{partyMembers.join(' & ')}</strong>. 
+                Result leans heavily towards {generatedPack[0]?.style}s and {generatedPack[1]?.style}s based on overlapping high-rated preferences. 
+                {packCount > 1 && ` Expanded to ${packCount * 6} unique recommendations for the group.`}
+              </p>
+              <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
+                <button style={{ backgroundColor: '#E67E22', color: '#fff', border: 'none', padding: '0.8rem 1.5rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Save to My Lists</button>
+                <button style={{ backgroundColor: 'transparent', color: '#E67E22', border: '1px solid #E67E22', padding: '0.8rem 1.5rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Order Delivery</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: '1 1 30%', minWidth: '250px', position: 'sticky', top: '20px' }}>
+          <div style={{ backgroundColor: '#1a1a1a', padding: '2rem', borderRadius: '12px', border: '1px solid #333' }}>
+            <h3 style={{ margin: '0 0 1.5rem 0', color: '#E67E22', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Algorithm Tuning
+            </h3>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <label style={{ display: 'block', color: '#fff', fontWeight: 'bold', marginBottom: '0.8rem' }}>Who is drinking?</label>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                {partyMembers.map(member => (
+                  <span key={member} style={{ backgroundColor: '#333', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {member}
+                    {member !== 'Me' && (
+                      <button onClick={() => removeFriend(member)} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer', padding: 0 }}>✖</button>
+                    )}
+                  </span>
+                ))}
+              </div>
+
+              <select 
+                value={selectedFriend} 
+                onChange={handleAddFriend}
+                style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #444', backgroundColor: '#222', color: '#fff', outline: 'none' }}
+              >
+                <option value="">+ Add a friend to blend profiles...</option>
+                {friendDatabase.map(friend => (
+                  <option key={friend} value={friend} disabled={partyMembers.includes(friend)}>{friend}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '2.5rem' }}>
+              <label style={{ display: 'block', color: '#fff', fontWeight: 'bold', marginBottom: '0.8rem' }}>How many 6-Packs?</label>
+              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#222', borderRadius: '6px', border: '1px solid #444', width: 'fit-content' }}>
+                <button onClick={() => setPackCount(Math.max(1, packCount - 1))} style={{ background: 'none', border: 'none', color: '#fff', padding: '0.8rem 1.2rem', cursor: 'pointer', fontSize: '1.2rem' }}>-</button>
+                <span style={{ color: '#fff', padding: '0 1.5rem', fontWeight: 'bold', fontSize: '1.2rem' }}>{packCount}</span>
+                <button onClick={() => setPackCount(Math.min(10, packCount + 1))} style={{ background: 'none', border: 'none', color: '#fff', padding: '0.8rem 1.2rem', cursor: 'pointer', fontSize: '1.2rem' }}>+</button>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              style={{ 
+                width: '100%', 
+                padding: '1.2rem', 
+                backgroundColor: isGenerating ? '#333' : '#E67E22', 
+                color: isGenerating ? '#888' : '#fff', 
+                border: 'none', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                fontSize: '1.2rem', 
+                cursor: isGenerating ? 'wait' : 'pointer',
+                transition: 'background-color 0.2s',
+                animation: isGenerating ? 'pulseGlow 1.5s infinite' : 'none'
+              }}
+            >
+              {isGenerating ? 'Crunching Preferences...' : 'Generate Selection'}
+            </button>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  );
+};
+
 // Discover Page Component
 const DiscoverPage = ({ allBeers, favorites, onCardClick, onToggleFav }) => {
  const [searchQuery, setSearchQuery] = useState('');
@@ -384,7 +1009,7 @@ const DiscoverPage = ({ allBeers, favorites, onCardClick, onToggleFav }) => {
 
   return (
     <div>
-      <h2 className="page-title">Discover</h2>
+      <h2 className="page-title">Explore</h2>
       
       <div className="search-container">
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -687,17 +1312,16 @@ const RecommenderDashboard = ({ data, onLogout }) => {
   const [favorites, setFavorites] = useState([]);
   const [userRatings, setUserRatings] = useState({});
   const [activeTab, setActiveTab] = useState('home');
-
-  // NEW: State for Demo vs Live API Data
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [apiData, setApiData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [ratingVersion, setRatingVersion] = useState(0);
   const [liveUserId, setLiveUserId] = useState(null);
+  const [partyMembers, setPartyMembers] = useState(['Me']);
+  const friendDatabase = ["Alex (Lager Lover)", "Sarah (Hops Fanatic)", "David (Stout Guy)"];
 
-  // NEW: The Fetch Hook that triggers when Demo Mode is turned off
-useEffect(() => {
+  useEffect(() => {
     if (!isDemoMode) {
       let cancelled = false;
 
@@ -761,8 +1385,24 @@ useEffect(() => {
     }
   }, [isDemoMode, ratingVersion]);
 
-  // Determine which data to feed the UI
+
   const activeData = isDemoMode ? data : apiData;
+
+  const displaySwimlanes = useMemo(() => {
+    if (!activeData || !activeData.swimlanes) return [];
+    
+    const priority = ["top matches", "trending in", "outside"];
+    
+    // We create a fresh array copy to ensure React detects the change
+    return [...activeData.swimlanes].sort((a, b) => {
+      const getPriority = (title) => {
+        const lowerTitle = title.toLowerCase();
+        const index = priority.findIndex(p => lowerTitle.includes(p));
+        return index === -1 ? 99 : index;
+      };
+      return getPriority(a.title) - getPriority(b.title);
+    });
+  }, [activeData, partyMembers]);
 
   const allUniqueBeers = useMemo(() => {
     if (!activeData || !activeData.swimlanes) return [];
@@ -783,7 +1423,6 @@ useEffect(() => {
         // Non-critical — local state was already updated
       }
 
-      // Optimistically remove the rated beer from swimlanes
       setApiData(prev => {
         if (!prev || !prev.swimlanes) return prev;
         return {
@@ -795,63 +1434,43 @@ useEffect(() => {
         };
       });
 
-      // Trigger a background re-fetch to get replacement recommendations
       setRatingVersion(v => v + 1);
     }
   };
 
   const toggleFavorite = (beerId) => {
-    if (favorites.includes(beerId)) {
-      setFavorites(favorites.filter(id => id !== beerId));
-    } else {
-      setFavorites([...favorites, beerId]);
-    }
+    setFavorites(prev => prev.includes(beerId) ? prev.filter(id => id !== beerId) : [...prev, beerId]);
   };
-
-  // If in demo mode but data is still loading from parent, show simple loader
-  if (isDemoMode && (!data || !data.swimlanes)) return <div>Loading recommendations...</div>;
 
   return (
     <div style={{ backgroundColor: '#141414', minHeight: '100vh', paddingBottom: '4rem' }}>
-      
-      {/* Pass the toggle states to the Navbar */}
       <Navbar 
         onLogout={onLogout} 
-        activeTab={activeTab}
+        activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         isDemoMode={isDemoMode}
         setIsDemoMode={setIsDemoMode}
       />
       
-      <div style={{ padding: '2rem 3rem' }}>
-        
-        {/* NEW: Loading State UI */}
-        {!isDemoMode && isLoading && (
-          <div className="empty-state">
-            <h2>Waking up the Recommender Engine...</h2>
-            <p>Connecting to Python Backend...</p>
-          </div>
-        )}
+      <div style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'flex-end' }}>
+        <GroupSwitcher 
+          partyMembers={partyMembers} 
+          friendDatabase={friendDatabase}
+          onApplyMembers={(newMembers) => {
+            setPartyMembers(newMembers);
+            setActiveTab('home'); 
+          }}
+        />
+      </div>
 
-        {/* NEW: Error State UI */}
-        {!isDemoMode && apiError && !isLoading && (
-          <div className="empty-state">
-            <h2>Connection Failed</h2>
-            <p style={{ color: '#ff4d4d' }}>{apiError}</p>
-            <button className="submit-review-btn" onClick={() => setIsDemoMode(true)} style={{ width: 'auto', marginTop: '1rem' }}>
-              Revert to Demo Mode
-            </button>
-          </div>
-        )}
-
-        {/* ONLY Render the views if we aren't loading and don't have an error */}
-        {(!isLoading && !apiError) && activeData && activeData.swimlanes && (
+      <div style={{ padding: '0 3rem' }}>
+        {activeData && activeData.swimlanes && (
           <>
             {activeTab === 'home' && (
               <>
-                {activeData.swimlanes.map((lane) => (
+                {displaySwimlanes.map((lane) => (
                   <Swimlane
-                    key={lane.id}
+                    key={`${lane.id}-${partyMembers.join(',')}`}
                     title={lane.title}
                     beers={lane.beers.filter(b => !userRatings[b.id])}
                     onCardClick={(beer) => setSelectedBeer(beer)}
@@ -888,6 +1507,8 @@ useEffect(() => {
               />
             )}
 
+            {activeTab === 'beer-lists' && <BeerListsPage allBeers={allUniqueBeers} />}
+            {activeTab === 'build-six-pack' && <BuildSixPackPage allBeers={allUniqueBeers} onCardClick={(beer) => setSelectedBeer(beer)} />}
           </>
         )}
 
@@ -907,7 +1528,6 @@ useEffect(() => {
             onToggleFav={toggleFavorite}
           />
         )}
-
       </div>
 
       <BeerModal

@@ -735,10 +735,11 @@ useEffect(() => {
           }
 
           if (cancelled) return;
+          const sorted = [...beers].sort((a, b) => b.match_score - a.match_score);
           setApiData({
             swimlanes: [
-              { id: 'top-matches', title: 'Top Matches for You', beers: beers.slice(0, 10) },
-              { id: 'also-like', title: 'You Might Also Like', beers: beers.slice(10) },
+              { id: 'top-matches', title: 'Top Matches for You', beers: sorted.slice(0, 10) },
+              { id: 'also-like', title: 'You Might Also Like', beers: sorted.slice(10) },
             ],
             antiBeers,
           });

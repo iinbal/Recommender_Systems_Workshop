@@ -86,7 +86,7 @@ const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }
           style={{ position: 'relative', display: 'inline-block' }}
         >
           <button 
-            className={`nav-link ${['discover', 'beer-lists', 'build-six-pack', 'anti-recommender'].includes(activeTab) ? 'active' : ''}`}
+            className={`nav-link ${['discover', 'beer-lists', 'build-six-pack', 'anti-recommender', 'top50', 'adventurous'].includes(activeTab) ? 'active' : ''}`}
             onClick={() => setActiveTab('discover')}
           >
             Discover
@@ -125,8 +125,6 @@ const Navbar = ({ onLogout, activeTab, setActiveTab, isDemoMode, setIsDemoMode }
         
         {/* 3. Shared With Me */}
         <button className="nav-link">Shared With Me</button>
-        <button className={`nav-link ${activeTab === 'top50' ? 'active' : ''}`} onClick={() => setActiveTab('top50')}>Top 50</button>
-        <button className={`nav-link ${activeTab === 'adventurous' ? 'active' : ''}`} onClick={() => setActiveTab('adventurous')}>Adventurous</button>
 
         {/* Demo Toggle Switch */}
         <div className="demo-toggle-container">
@@ -427,11 +425,6 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
     { id: 'm2', title: "BBQ Weekend", beers: [], icon: '🍔', color: '#333333', section: 'BBQ Pairings' }
   ]);
 
-  const curatedLists = [
-    { id: 'c1', title: 'Top 50 Rated All-Time', beers: [], icon: '🏆', color: '#B8860B' },
-    { id: 'c2', title: 'Hoppy Heaven (Top IPAs)', beers: [], icon: '🌿', color: '#2E8B57' },
-  ];
-
   // --- ACTIONS ---
 
   const handleCreateSubmit = () => {
@@ -529,7 +522,7 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
       onClick={() => {
         if (isAddButton) setIsModalOpen(true);
         else {
-          const listData = myLists.find(l => l.id === id) || curatedLists.find(l => l.id === id);
+          const listData = myLists.find(l => l.id === id);
           setActiveList(listData);
         }
       }}
@@ -664,7 +657,6 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
       <div style={{ marginBottom: '3rem' }}>
         <h3 style={{ color: '#E67E22', borderBottom: '1px solid #333', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Curated by RuBeer</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-          {curatedLists.map(list => <ListCard key={list.id} {...list} isCustom={false} />)}
           <div
             style={{
               backgroundColor: '#1a1a1a',
@@ -686,6 +678,52 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
             <div>
               <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Anti-Recommender List</h3>
               <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Beers you should avoid</span>
+            </div>
+          </div>
+          <div
+            style={{
+              backgroundColor: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              minHeight: '160px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            onClick={() => onNavigate && onNavigate('top50')}
+          >
+            <div style={{ fontSize: '2.5rem' }}>&#127942;</div>
+            <div>
+              <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Top 50 Rated All-Time</h3>
+              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Highest rated beers overall</span>
+            </div>
+          </div>
+          <div
+            style={{
+              backgroundColor: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              minHeight: '160px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            onClick={() => onNavigate && onNavigate('adventurous')}
+          >
+            <div style={{ fontSize: '2.5rem' }}>&#127757;</div>
+            <div>
+              <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Feeling Adventurous?</h3>
+              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Step outside your comfort zone</span>
             </div>
           </div>
         </div>

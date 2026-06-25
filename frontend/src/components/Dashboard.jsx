@@ -502,23 +502,23 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
   // --- SUB-COMPONENTS ---
 
   const ListCard = ({ id, title, beers = [], icon, color, isAddButton, isCustom }) => (
-    <div 
-      style={{
-        backgroundColor: color || '#1a1a1a',
-        border: isAddButton ? '2px dashed #666' : '1px solid #333',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        minHeight: '160px',
+    <div
+      className={isAddButton ? undefined : 'curated-card'}
+      style={isAddButton ? {
+        backgroundColor: '#1a1a1a',
+        border: '2px dashed #666',
+        borderRadius: '16px',
+        padding: '1.8rem',
+        minHeight: '180px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        alignItems: 'center',
         cursor: 'pointer',
-        transition: 'transform 0.2s ease, borderColor 0.2s ease',
-        alignItems: isAddButton ? 'center' : 'flex-start',
-        position: 'relative'
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        transition: 'transform 0.25s ease, border-color 0.25s ease',
+      } : undefined}
+      onMouseEnter={isAddButton ? (e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.borderColor = '#E67E22'; } : undefined}
+      onMouseLeave={isAddButton ? (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#666'; } : undefined}
       onClick={() => {
         if (isAddButton) setIsModalOpen(true);
         else {
@@ -527,9 +527,8 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
         }
       }}
     >
-      {/* UPDATED: Delete Button now calls handleDeleteClick */}
       {isCustom && !isAddButton && (
-        <button 
+        <button
           onClick={(e) => handleDeleteClick(id, e)}
           style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#ff4d4d', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.7 }}
           title="Delete List"
@@ -545,10 +544,10 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
         </>
       ) : (
         <>
-          <div style={{ fontSize: '2.5rem' }}>{icon}</div>
+          <div className="curated-icon">{icon}</div>
           <div>
-            <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>{title}</h3>
-            <span style={{ color: '#aaa', fontSize: '0.9rem' }}>{beers.length} Beers</span>
+            <h3 className="curated-title">{title}</h3>
+            <span className="curated-subtitle">{beers.length} Beers</span>
           </div>
         </>
       )}
@@ -657,73 +656,25 @@ const BeerListsPage = ({ allBeers = [], onNavigate }) => {
       <div style={{ marginBottom: '3rem' }}>
         <h3 style={{ color: '#E67E22', borderBottom: '1px solid #333', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Curated by RuBeer</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-          <div
-            style={{
-              backgroundColor: '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              minHeight: '160px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            onClick={() => onNavigate && onNavigate('anti-recommender')}
-          >
-            <div style={{ fontSize: '2.5rem' }}>&#9888;</div>
+          <div className="curated-card curated-dark" onClick={() => onNavigate && onNavigate('anti-recommender')}>
+            <div className="curated-icon">&#9888;</div>
             <div>
-              <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Anti-Recommender List</h3>
-              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Beers you should avoid</span>
+              <h3 className="curated-title">Anti-Recommender List</h3>
+              <span className="curated-subtitle">Beers you should avoid</span>
             </div>
           </div>
-          <div
-            style={{
-              backgroundColor: '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              minHeight: '160px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            onClick={() => onNavigate && onNavigate('top50')}
-          >
-            <div style={{ fontSize: '2.5rem' }}>&#127942;</div>
+          <div className="curated-card curated-gold" onClick={() => onNavigate && onNavigate('top50')}>
+            <div className="curated-icon">&#127942;</div>
             <div>
-              <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Top 50 Rated All-Time</h3>
-              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Highest rated beers overall</span>
+              <h3 className="curated-title">Top 50 Rated All-Time</h3>
+              <span className="curated-subtitle">Highest rated beers overall</span>
             </div>
           </div>
-          <div
-            style={{
-              backgroundColor: '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              minHeight: '160px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            onClick={() => onNavigate && onNavigate('adventurous')}
-          >
-            <div style={{ fontSize: '2.5rem' }}>&#127757;</div>
+          <div className="curated-card curated-blue" onClick={() => onNavigate && onNavigate('adventurous')}>
+            <div className="curated-icon">&#127757;</div>
             <div>
-              <h3 style={{ margin: '0 0 0.3rem 0', color: '#fff', fontSize: '1.2rem' }}>Feeling Adventurous?</h3>
-              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>Step outside your comfort zone</span>
+              <h3 className="curated-title">Feeling Adventurous?</h3>
+              <span className="curated-subtitle">Step outside your comfort zone</span>
             </div>
           </div>
         </div>
@@ -1394,11 +1345,15 @@ const AntiRecommenderPage = ({ userId, onCardClick, favorites, onToggleFav }) =>
   );
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+    <div className="anti-page-container">
+      <div className="anti-page-header">
         <div>
-          <h2 className="page-title" style={{ marginBottom: '0.3rem' }}>Anti-Recommender List</h2>
-          <p style={{ color: '#aaa', margin: 0 }}>
+          <div className="anti-page-title-row">
+            <span className="anti-icon">&#9888;</span>
+            <h2>Anti-Recommender List</h2>
+            <span className="anti-icon">&#9888;</span>
+          </div>
+          <p className="anti-page-subtitle">
             Our model is pretty sure you will hate these. Proceed at your own risk.
           </p>
         </div>
@@ -1412,13 +1367,14 @@ const AntiRecommenderPage = ({ userId, onCardClick, favorites, onToggleFav }) =>
       </div>
       <div className="favorites-grid">
         {beers.map((beer) => (
-          <BeerCard
-            key={beer.id}
-            beer={beer}
-            onCardClick={onCardClick}
-            isFav={favorites.includes(beer.id)}
-            onToggleFav={onToggleFav}
-          />
+          <div key={beer.id} className="anti-card-wrapper">
+            <BeerCard
+              beer={beer}
+              onCardClick={onCardClick}
+              isFav={favorites.includes(beer.id)}
+              onToggleFav={onToggleFav}
+            />
+          </div>
         ))}
       </div>
     </div>

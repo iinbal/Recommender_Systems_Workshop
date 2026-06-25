@@ -1,83 +1,183 @@
 import React, { useState } from 'react';
-import './LandingPage.css';
+import './Auth.css';
 import logo from '../assets/logo.png';
 import { loginUser, registerUser } from '../services/authService';
 
-const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin, onBack }) => {
-  const [isLogin, setIsLogin] = useState(initialIsLogin);
+
+const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
+  const [isLoginView, setIsLoginView] = useState(initialIsLogin);
+
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAdult, setIsAdult] = useState(false);
   const [error, setError] = useState('');
+
+  const validateEmail = (email) => {
+    return email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    const result = isLogin ? loginUser(email, password) : registerUser(email, password);
-
-    if (!result.success) {
-      setError(result.error);
+    if (isDemoMode) {
+      console.log("Demo Mode Active: Bypassing authentication checks.");
+      onLogin({ username: username || "Demo_User" }, !isLoginView);
       return;
     }
 
-    onLogin(result.user, result.user.needsColdStart);
+    if (!isLoginView) {
+      if (!validateEmail(email)) return setError("Please enter a valid email address.");
+      if (password !== confirmPassword) return setError("Passwords do not match.");
+      if (!isAdult) return setError("You must be 18 or older to create an account.");
+      if (password.length < 6) return setError("Password must be at least 6 characters.");
+
+      const result = registerUser(email, password);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      onLogin(result.user, result.user.needsColdStart);
+    } else {
+      if (!username || !password) return setError("Please enter both username and password.");
+
+      const result = loginUser(username, password);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      onLogin(result.user, result.user.needsColdStart);
+    }
   };
 
-  return (
-    <div className="landing-container">
-      <div className="top-section">
-        <img src={logo} alt="RuBeer Logo" className="rubeer-logo" />
-        <h1 className="hook-text">{isLogin ? 'Welcome Back' : 'Create Your Account'}</h1>
+  const handleForgotPassword = () => {
+    alert("Password reset instructions have been sent to your registered email (Simulated).");
+  };
 
-        <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <input
-            type="email"
-            className="search-input"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: '100%', maxWidth: 'none' }}
-            required
-          />
-          <input
-            type="password"
-            className="search-input"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ width: '100%', maxWidth: 'none' }}
-            required
-          />
-
-          {error && (
-            <p style={{ color: '#ff4d4d', fontSize: '0.9rem', textAlign: 'center', margin: 0 }}>
-              {error}
-            </p>
-          )}
-
-          <button type="submit" className="btn-primary">
-            {isLogin ? 'Log In' : 'Create Account'}
-          </button>
-
-          {isDemoMode && (
-            <p style={{ color: '#888', fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
-              Demo mode: accounts are stored in your browser only.
-            </p>
-          )}
-        </form>
-
-        <div className="auth-container" style={{ marginTop: '1.5rem' }}>
-          <button className="btn-secondary" onClick={() => { setIsLogin(!isLogin); setError(''); }}>
-            {isLogin ? "Need an account? Sign Up" : 'Already have an account? Log In'}
-          </button>
-        </div>
-
+ return (
+    <div className="auth-container">
+      <div className="auth-card">
         <button
           onClick={onBack}
-          style={{ marginTop: '1rem', background: 'none', border: 'none', color: '#888', cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}
         >
-          Back
+          ← Back to Home
         </button>
+        <div className="auth-header">
+          <div className="auth-logo-row">
+            <img src={logo} alt="RuBeer Logo" className="auth-logo" />
+            <h1>RuBeer</h1>
+          </div>
+          <p>{isLoginView ? 'Welcome back to your digital cellar.' : 'Start discovering better beer.'}</p>
+        </div>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Username</label>
+            <input
+              type="text"
+              className="auth-input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required={!isDemoMode}
+            />
+          </div>
+
+          {!isLoginView && (
+            <div className="form-group">
+              <label>E-mail</label>
+              <input
+                type="email"
+                className="auth-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required={!isDemoMode}
+              />
+            </div>
+          )}
+
+          <div className="form-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <label>Password</label>
+              {isLoginView && (
+                <button type="button" className="auth-link" style={{ fontSize: '0.8rem', fontWeight: 'normal' }} onClick={handleForgotPassword}>
+                  Forgot Password?
+                </button>
+              )}
+            </div>
+            <input
+              type="password"
+              className="auth-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required={!isDemoMode}
+            />
+          </div>
+
+          {!isLoginView && (
+            <>
+              <div className="form-group">
+                <label>Re-enter Password</label>
+                <input
+                  type="password"
+                  className="auth-input"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required={!isDemoMode}
+                />
+              </div>
+
+              <div className="auth-checkbox-group">
+                <input
+                  type="checkbox"
+                  id="age-verify"
+                  checked={isAdult}
+                  onChange={(e) => setIsAdult(e.target.checked)}
+                />
+                <label htmlFor="age-verify">I verify that I am 18 years of age or older.</label>
+              </div>
+            </>
+          )}
+
+          {error && <div className="error-message">{error}</div>}
+
+          <button type="submit" className="auth-btn">
+            {isLoginView ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+
+        {isDemoMode && isLoginView && (
+          <>
+            <div className="divider">OR</div>
+            <button
+              type="button"
+              className="demo-admin-btn"
+              onClick={() => onLogin({ username: "Admin_Presenter" }, false)}
+            >
+              Demo presentation Login
+            </button>
+          </>
+        )}
+
+        <div className="auth-footer">
+          {isLoginView ? (
+            <>
+              Don't have an account?
+              <button className="auth-link" onClick={() => { setIsLoginView(false); setError(''); }}>
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?
+              <button className="auth-link" onClick={() => { setIsLoginView(true); setError(''); }}>
+                Log in
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -42,26 +42,6 @@
   font-size: 2.2rem;
 }
 
-/* --- Admin Demo Button --- */
-.demo-admin-btn {
-  background-color: transparent;
-  color: #E67E22;
-  border: 2px solid #E67E22;
-  padding: 0.8rem;
-  border-radius: 6px;
-  font-weight: bold;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-top: 1rem;
-  width: 100%;
-  transition: all 0.2s;
-}
-
-.demo-admin-btn:hover {
-  background-color: #E67E22;
-  color: white;
-}
-
 .divider {
   display: flex;
   align-items: center;

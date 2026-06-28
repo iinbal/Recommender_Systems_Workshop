@@ -596,26 +596,6 @@
   cursor: not-allowed;
 }
 
-/* --- Demo Mode Toggle Styles --- */
-.demo-toggle-container {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin-left: auto; /* Pushes it to the right side of the navbar */
-  padding-left: 1rem;
-  border-left: 1px solid #333;
-}
-
-.demo-label {
-  color: #ccc;
-  font-size: 0.9rem;
-  font-weight: bold;
-}
-
-.demo-label.active {
-  color: #E67E22;
-}
-
 /* The Switch Container */
 .switch {
   position: relative;

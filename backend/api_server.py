@@ -276,6 +276,36 @@ async def submit_rating(payload: dict = Body(...)):
     return {"status": "ok", "excluded": str(beer_id)}
 
 
+@app.get("/beers/cold-start-probe")
+async def get_cold_start_probe_beers():
+    """Return ~12 high-rated representative beers (3 per taste cluster) for onboarding."""
+    cluster_styles = {
+        "hoppy": {"IPA", "India Pale Ale", "Double IPA", "American Pale Ale", "Pale Ale"},
+        "dark":  {"Stout", "Porter", "Imperial Stout", "Brown Ale"},
+        "sour":  {"Sour Ale", "Wild Ale", "Lambic", "Fruit Beer", "Sour"},
+        "light": {"Lager", "Pilsner", "Light Lager", "Pale Lager", "Wheat Beer"},
+    }
+    BEERS_PER_CLUSTER = 3
+    result = []
+    seen_ids: set = set()
+    for cluster_id, styles in cluster_styles.items():
+        pool = cb.item_profiles[cb.item_profiles["beer_style"].isin(styles)]
+        top = pool.nlargest(BEERS_PER_CLUSTER, "avg_overall_rating")
+        for _, row in top.iterrows():
+            bid = str(row["beer_id"])
+            if bid not in seen_ids:
+                seen_ids.add(bid)
+                result.append({
+                    "beer_id": bid,
+                    "beer_name": str(row["beer_name"]),
+                    "beer_style": str(row["beer_style"]),
+                    "beer_abv": float(row["beer_abv"]),
+                    "avg_overall_rating": float(row["avg_overall_rating"]),
+                    "cluster": cluster_id,
+                })
+    return result
+
+
 @app.get("/beers/top")
 async def get_top_beers(n: int = 50):
     """Return the top-N highest-rated beers from live artifact data."""

@@ -4,7 +4,7 @@ import logo from '../assets/logo.png';
 import { loginUser, registerUser } from '../services/authService';
 
 
-const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
+const AuthScreen = ({ onLogin, initialIsLogin = true, onBack }) => {
   const [isLoginView, setIsLoginView] = useState(initialIsLogin);
 
   const [username, setUsername] = useState('');
@@ -14,36 +14,31 @@ const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
   const [isAdult, setIsAdult] = useState(false);
   const [error, setError] = useState('');
 
-  const validateEmail = (email) => {
-    return email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  const validateEmail = (e) => {
+    return e.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    if (isDemoMode) {
-      console.log("Demo Mode Active: Bypassing authentication checks.");
-      onLogin({ username: username || "Demo_User" }, !isLoginView);
-      return;
-    }
-
     if (!isLoginView) {
+      if (!username.trim()) return setError("Please enter a display name.");
       if (!validateEmail(email)) return setError("Please enter a valid email address.");
       if (password !== confirmPassword) return setError("Passwords do not match.");
       if (!isAdult) return setError("You must be 18 or older to create an account.");
       if (password.length < 6) return setError("Password must be at least 6 characters.");
 
-      const result = registerUser(email, password);
+      const result = registerUser(username, email, password);
       if (!result.success) {
         setError(result.error);
         return;
       }
       onLogin(result.user, result.user.needsColdStart);
     } else {
-      if (!username || !password) return setError("Please enter both username and password.");
+      if (!email || !password) return setError("Please enter your email and password.");
 
-      const result = loginUser(username, password);
+      const result = loginUser(email, password);
       if (!result.success) {
         setError(result.error);
         return;
@@ -74,29 +69,29 @@ const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Username</label>
-            <input
-              type="text"
-              className="auth-input"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required={!isDemoMode}
-            />
-          </div>
-
           {!isLoginView && (
             <div className="form-group">
-              <label>E-mail</label>
+              <label>Display Name</label>
               <input
-                type="email"
+                type="text"
                 className="auth-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required={!isDemoMode}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
               />
             </div>
           )}
+
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              className="auth-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -112,7 +107,7 @@ const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
               className="auth-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required={!isDemoMode}
+              required
             />
           </div>
 
@@ -125,7 +120,7 @@ const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
                   className="auth-input"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  required={!isDemoMode}
+                  required
                 />
               </div>
 
@@ -147,19 +142,6 @@ const AuthScreen = ({ onLogin, isDemoMode, initialIsLogin = true, onBack }) => {
             {isLoginView ? 'Sign In' : 'Create Account'}
           </button>
         </form>
-
-        {isDemoMode && isLoginView && (
-          <>
-            <div className="divider">OR</div>
-            <button
-              type="button"
-              className="demo-admin-btn"
-              onClick={() => onLogin({ username: "Admin_Presenter" }, false)}
-            >
-              Demo presentation Login
-            </button>
-          </>
-        )}
 
         <div className="auth-footer">
           {isLoginView ? (

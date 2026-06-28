@@ -68,6 +68,11 @@ export async function getAntiRecommendations(userId, recNum = 10) {
   return request(`/recommendations/${encodeURIComponent(userId)}/anti?rec_num=${recNum}`);
 }
 
+// GET /beers/cold-start-probe
+export async function getColdStartProbeBeers() {
+  return request('/beers/cold-start-probe');
+}
+
 // POST /ratings
 export async function submitRating(userId, beerId, rating) {
   return request('/ratings', {

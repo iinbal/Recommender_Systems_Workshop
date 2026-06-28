@@ -24,11 +24,12 @@ const writeUsers = (users) => {
 const toPublicUser = (email, record) => ({
   email,
   userId: email,
+  username: record.username || email,
   needsColdStart: !record.coldStartCompleted,
   ratings: record.ratings || {},
 });
 
-export const registerUser = (email, password) => {
+export const registerUser = (username, email, password) => {
   const normalizedEmail = email.trim().toLowerCase();
   const users = readUsers();
 
@@ -37,6 +38,7 @@ export const registerUser = (email, password) => {
   }
 
   users[normalizedEmail] = {
+    username: username.trim(),
     password,
     coldStartCompleted: false,
     ratings: {},

@@ -5,21 +5,10 @@ import LandingPage from './components/LandingPage';
 import './components/Dashboard.css';
 import { saveColdStartRatings } from './services/authService';
 import ColdStartRouter from './components/ColdStartRouter';
-import CherryTartImage from './assets/Cherry Tart.jpg';
-import citrusBlastImage from './assets/Citrus Blast.jpg';
-import desertMirageImage from './assets/Sour Ale.jpg';
-import galacticStoutImage from './assets/Galactic Stout.jpg';
-import hazyHorizonImage from './assets/Hazy Horizon.jpg';
-import midnightPorterImage from './assets/Midnight Porter.jpg';
-import rubyRedImage from './assets/Ruby Red.jpg';
-import crispMorningImage from './assets/Crisp morning.jpg';
-import goldenHourImage from './assets/Golden Hour.jpg';
-import spicedPumpkinImage from './assets/Spiced Pumpkin.jpg';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [needsColdStart, setNeedsColdStart] = useState(false);
-  const [isDemoMode] = useState(true);
   const [coldStartRecs, setColdStartRecs] = useState(null);
   const [isNewUser, setIsNewUser] = useState(false);
 
@@ -45,39 +34,6 @@ function App() {
     setIsNewUser(true);  // trigger the post-onboarding nudge banner
   };
 
-const dummyData = {
-    swimlanes: [
-      {
-        id: 'top-matches',
-        title: 'Top Matches for You',
-        beers: [
-          { id: 'b1', name: 'Galactic Stout', style: 'Imperial Stout', abv: 9.5, match_score: 0.98, rating: 4.8, image_url: galacticStoutImage },
-          { id: 'b2', name: 'Hazy Horizon', style: 'NEIPA', abv: 6.8, match_score: 0.94, rating: 4.5, image_url: hazyHorizonImage },
-          { id: 'b3', name: 'Crisp Morning', style: 'Pilsner', abv: 4.5, match_score: 0.91, rating: 4.2, image_url: crispMorningImage },
-          { id: 'b4', name: 'Ruby Red', style: 'Amber Ale', abv: 5.5, match_score: 0.88, rating: 4.0, image_url: rubyRedImage }
-        ]
-      },
-      {
-        id: 'trending',
-        title: 'Trending in Tel Aviv',
-        beers: [
-          { id: 'b5', name: 'Desert Mirage', style: 'Sour Ale', abv: 5.2, match_score: 0.85, rating: 4.1, image_url: desertMirageImage },
-          { id: 'b6', name: 'Citrus Blast', style: 'IPA', abv: 7.2, match_score: 0.82, rating: 4.4, image_url: citrusBlastImage },
-          { id: 'b7', name: 'Midnight Porter', style: 'Porter', abv: 6.0, match_score: 0.80, rating: 4.6, image_url: midnightPorterImage },
-          { id: 'b8', name: 'Golden Hour', style: 'Wheat Beer', abv: 4.8, match_score: 0.77, rating: 3.9, image_url: goldenHourImage }
-        ]
-      },
-      {
-        id: 'try-something-new',
-        title: 'Step Outside Your Comfort Zone',
-        beers: [
-          { id: 'b9', name: 'Spiced Pumpkin', style: 'Seasonal Ale', abv: 6.5, match_score: 0.65, rating: 3.8, image_url: spicedPumpkinImage },
-          { id: 'b10', name: 'Cherry Tart', style: 'Fruited Sour', abv: 4.2, match_score: 0.58, rating: 4.3, image_url: CherryTartImage },
-        ]
-      }
-    ]
-  };
-
   const handleLogin = (userData, requiresColdStart) => {
     setCurrentUser(userData);
     setNeedsColdStart(requiresColdStart);
@@ -98,7 +54,6 @@ const dummyData = {
     return (
       <AuthScreen 
         onLogin={handleLogin} 
-        isDemoMode={isDemoMode} 
         initialIsLogin={initialAuthView}
         onBack={() => setShowAuth(false)} // Gives them a way back to the landing page
       />
@@ -123,7 +78,6 @@ const dummyData = {
   // 4. Otherwise, show the main application
   return (
     <RecommenderDashboard
-      data={dummyData}
       coldStartRecs={coldStartRecs}
       userId={currentUser.userId}
       onLogout={handleLogout}

@@ -28,7 +28,7 @@ const BeerSearchFlow = ({ onComplete, onSwitchToMethod2 }) => {
 
   // Debounced search — fires 300 ms after the user stops typing
   useEffect(() => {
-    if (!query.trim()) {
+    if (query.trim().length < 2) {
       setSearchResults([]);
       setShowDropdown(false);
       return;

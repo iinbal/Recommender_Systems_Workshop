@@ -1084,6 +1084,18 @@ const DiscoverPage = ({ allBeers, favorites, onCardClick, onToggleFav }) => {
 
   const dummyCategories = ["IPA", "Stout", "Lager", "Pilsner", "Ale", "Porter"];
 
+  // Maps each UI tag to the substrings that can appear in real dataset style names.
+  // "IPA" must cover "India Pale Ale" because that's how the BeerAdvocate dataset
+  // labels most IPA beers — "india pale ale".includes("ipa") is false.
+  const STYLE_PATTERNS = {
+    IPA:     ['ipa', 'india pale ale', 'imperial pale ale'],
+    Stout:   ['stout'],
+    Lager:   ['lager'],
+    Pilsner: ['pilsner', 'pils'],
+    Ale:     ['ale'],
+    Porter:  ['porter'],
+  };
+
   const handleTagClick = (category) => {
     if (activeTags.includes(category)) {
       setActiveTags(activeTags.filter(tag => tag !== category));
@@ -1110,11 +1122,15 @@ const DiscoverPage = ({ allBeers, favorites, onCardClick, onToggleFav }) => {
   };
 
   const filteredBeers = allBeers.filter(beer => {
-    const matchesSearch = beer.name.toLowerCase().includes(appliedSearch.toLowerCase()) || 
-                          beer.style.toLowerCase().includes(appliedSearch.toLowerCase());
-    
-    const matchesTags = activeTags.length === 0 || 
-      activeTags.some(tag => beer.style.toLowerCase().includes(tag.toLowerCase()));
+    const style = (beer.style || '').toLowerCase();
+    const matchesSearch = beer.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+                          style.includes(appliedSearch.toLowerCase());
+
+    const matchesTags = activeTags.length === 0 ||
+      activeTags.some(tag => {
+        const patterns = STYLE_PATTERNS[tag] || [tag.toLowerCase()];
+        return patterns.some(p => style.includes(p));
+      });
 
     const beerAbv = beer.abv || 0;
     const beerDistance = beer.distance || 0; 

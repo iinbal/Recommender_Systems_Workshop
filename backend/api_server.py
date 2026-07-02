@@ -15,7 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from backend.online_store import (
     record_rating, get_excluded_ids, add_score_adjustments, get_score_adjustments,
-    record_rating_value, get_user_ratings,
+    record_rating_value, get_user_ratings, rehydrate as _rehydrate_store,
 )
 
 import menu_vision
@@ -58,6 +58,48 @@ def _persist_rating(user_id: str, beer_id, rating: float) -> None:
         row.to_csv(NEW_RATINGS_PATH, mode="a", header=write_header, index=False)
     except Exception as exc:
         logging.warning("Failed to persist rating to %s: %s", NEW_RATINGS_PATH, exc)
+
+
+def _cast_beer_id_for_pipeline(beer_id):
+    """Cast beer_id to match the pipeline's type (int for real data, str for demo)."""
+    col = cb.item_profiles["beer_id"]
+    if col.dtype != object:
+        try:
+            return col.dtype.type(beer_id)
+        except (ValueError, TypeError):
+            pass
+    return beer_id
+
+
+def _record_and_persist_rating(user_id: str, beer_id, rating: float) -> None:
+    """Record a rating in the online store and durably append it to new_ratings.csv.
+    Shared by POST /ratings and the cold-start endpoints that synthesize ratings."""
+    beer_id = _cast_beer_id_for_pipeline(beer_id)
+    record_rating(user_id, beer_id, rating)
+    record_rating_value(user_id, beer_id, rating)
+    _persist_rating(user_id, beer_id, rating)
+
+
+def _rehydrate_online_store() -> None:
+    """Repopulate online_store from new_ratings.csv on startup so registered
+    users' personalization survives a backend restart."""
+    if not NEW_RATINGS_PATH.exists():
+        return
+    try:
+        df = pd.read_csv(NEW_RATINGS_PATH)
+        rows = (
+            (str(r.username), _cast_beer_id_for_pipeline(r.beer_id), float(r.rating_overall))
+            for r in df.itertuples(index=False)
+        )
+        count = _rehydrate_store(rows)
+        print(f"Rehydrated online_store with {count} rating(s) from {NEW_RATINGS_PATH}")
+    except Exception as exc:
+        print(f"WARNING: Failed to rehydrate online_store from {NEW_RATINGS_PATH}: {exc}")
+
+
+@app.on_event("startup")
+async def _on_startup():
+    _rehydrate_online_store()
 
 
 @app.on_event("startup")
@@ -325,19 +367,10 @@ async def submit_rating(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="user_id, beer_id, and rating are required")
 
     rating = float(rating)
-
-    # Cast beer_id to match the pipeline's type (int for real data, str for demo)
-    col = cb.item_profiles["beer_id"]
-    if col.dtype != object:
-        try:
-            beer_id = col.dtype.type(beer_id)
-        except (ValueError, TypeError):
-            pass
+    beer_id = _cast_beer_id_for_pipeline(beer_id)
 
     # Mandatory: exclude this beer from future recommendations
-    record_rating(user_id, beer_id, rating)
-    record_rating_value(user_id, beer_id, rating)
-    _persist_rating(user_id, beer_id, rating)
+    _record_and_persist_rating(user_id, beer_id, rating)
 
     # Bonus: heuristic score adjustments for similar beers
     if beer_id in cb.beer_id_to_index or str(beer_id) in [str(k) for k in cb.beer_id_to_index]:
@@ -474,12 +507,19 @@ async def onboarding_from_attributes(payload: dict = Body(...)):
 
     Expected payload:
     {
+        "user_id": "user@example.com",
         "taste": 4, "aroma": 3, "appearance": 2, "palate": 5,
         "abv_pref": "medium",
         "styles": ["IPA", "Pale Ale"],
         "n": 10
     }
+
+    If user_id is provided, the top scored beers are persisted as synthetic
+    ratings in the online store (same durable path as POST /ratings), so this
+    user's subsequent GET /recommendations/{user_id} calls succeed instead of
+    falling through to an unrelated fallback.
     """
+    user_id = payload.get("user_id")
     taste = float(payload.get("taste", 3))
     aroma = float(payload.get("aroma", 3))
     appearance = float(payload.get("appearance", 3))
@@ -502,6 +542,11 @@ async def onboarding_from_attributes(payload: dict = Body(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    if user_id:
+        for beer_id, score in scores.nlargest(10).items():
+            synthetic_rating = 1 + round(float(np.clip(score, 0.0, 1.0)) * 4)
+            _record_and_persist_rating(user_id, beer_id, synthetic_rating)
 
     reranked = rerank_recommendations(scores, n)
     return {
@@ -720,6 +765,16 @@ def get_user_anti_candidates(user_id: str, candidate_num: int) -> pd.Series:
         cb_candidates = cb.cb_recommend(user_id, expanded_candidate_num, exclude_ids=exclude, ascending=True)
     except ValueError:
         pass
+
+    # New-user fallback: build anti-candidates directly from session ratings (CB only --
+    # cf_recommend_new_user doesn't support an ascending/worst-match mode).
+    if cf_candidates is None and cb_candidates is None and session_ratings:
+        try:
+            cb_candidates = cb.cb_recommend_from_ratings(
+                session_ratings, expanded_candidate_num, exclude_ids=exclude, ascending=True
+            )
+        except ValueError:
+            pass
 
     if cf_candidates is None and cb_candidates is None:
         raise ValueError(f"User '{user_id}' not found in either recommendation pipeline")

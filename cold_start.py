@@ -149,8 +149,21 @@ def cold_start_from_attributes(
     # 6. Blend: 70% numeric profile match, 30% style cluster match
     final = 0.7 * numeric_series + 0.3 * style_series
 
-    # 7. Return top-n
-    return final.nlargest(n).rename("cold_start_score")
+    # 7. Cap representation per exact beer_style before truncating to n. The style-cluster
+    # bonus above is flat across an entire cluster (e.g. IPA/Double IPA/American Pale Ale all
+    # score identically), so without this cap the numeric term alone can let one style sweep
+    # every slot, starving the downstream MMR reranker of any real variety to choose from.
+    STYLE_CAP = 5
+    style_by_id = item_profiles.set_index("beer_id")["beer_style"]
+    ranked = final.sort_values(ascending=False)
+    capped = (
+        pd.DataFrame({"score": ranked, "beer_style": style_by_id.reindex(ranked.index)})
+        .groupby("beer_style", sort=False)
+        .head(STYLE_CAP)["score"]
+    )
+
+    # 8. Return top-n
+    return capped.nlargest(n).rename("cold_start_score")
 
 
 def cold_start_from_ratings(

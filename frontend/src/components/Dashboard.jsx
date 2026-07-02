@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import './Dashboard.css';
 import logo from '../assets/logo.png';
 import rubiBadge from '../assets/rubi_sym_circ.jpeg';
-import { getRecommendations, getBeerDetails, getSimilarBeers, submitRating, getSampleUsers, getTopBeers, getAdventurousRecommendations, getAntiRecommendations, uploadMenuImage } from '../services/apiService';
+import { getRecommendations, getBeerDetails, getSimilarBeers, submitRating, getTopBeers, getAdventurousRecommendations, getAntiRecommendations, uploadMenuImage } from '../services/apiService';
 import { getBeerImage, DEFAULT_BEER_IMAGE } from '../utils/beerImages';
 import NewUserBanner from './NewUserBanner';
 import UserProfilePage from './UserProfilePage';
@@ -1556,8 +1556,6 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [ratingVersion, setRatingVersion] = useState(0);
-  const [liveUserId, setLiveUserId] = useState(null);
-  const liveUserIdRef = useRef(null);
   const coldStartShownRef = useRef(false);
   const [partyMembers, setPartyMembers] = useState(['Me']);
   const friendDatabase = ["Alex (Lager Lover)", "Sarah (Hops Fanatic)", "David (Stout Guy)"];
@@ -1595,7 +1593,6 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
 
         // 2. Real user: fetch recommendations using their actual identity.
         if (userId) {
-          let fetchedFromRealUser = false;
           try {
             const { recommended_ids, scores } = await getRecommendations(userId, 21);
             const scaled = scaleScores(scores);
@@ -1612,38 +1609,28 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
               ],
             });
             setDailyBeer(sorted[20] ?? null);
-            fetchedFromRealUser = true;
+            return;
           } catch {
-            // User not in CF pipeline — fall through to sample user below
+            // No personalization signal yet for this user (e.g. onboarding was
+            // skipped) — fall through to an honest, non-personalized view below
+            // instead of showing another real user's recommendations.
           }
-          if (fetchedFromRealUser) return;
         }
 
-        // 3. Fallback: fetch recommendations for a sample user.
-        let sampleId = liveUserIdRef.current;
-        if (!sampleId) {
-          const { user_ids } = await getSampleUsers(1);
-          sampleId = user_ids[0];
-          if (!cancelled) {
-            liveUserIdRef.current = sampleId;
-            setLiveUserId(sampleId);
-          }
-        }
-        const { recommended_ids, scores } = await getRecommendations(sampleId, 21);
-        const scaled = scaleScores(scores);
-        const details = await Promise.all(
-          recommended_ids.map((id) => getBeerDetails(id))
-        );
+        // 3. No personalized signal available: show popular beers, clearly
+        // labeled as such (never substitute a different real user's feed).
+        const topBeers = await getTopBeers(21);
         if (cancelled) return;
-        const beers = details.map((beer, i) => mapBeerToCard(beer, scaled[i]));
-        const sorted = [...beers].sort((a, b) => b.match_score - a.match_score);
+        const popular = topBeers.map((beer, i) => ({
+          ...mapBeerToCard(beer, 0),
+          rank: i + 1,
+        }));
         setApiData({
           swimlanes: [
-            { id: 'top-matches', title: 'Top Matches for You', beers: sorted.slice(0, 10) },
-            { id: 'also-like', title: 'You Might Also Like', beers: sorted.slice(10, 20) },
+            { id: 'popular', title: 'Popular Beers', beers: popular.slice(0, 20) },
           ],
         });
-        setDailyBeer(sorted[20] ?? null);
+        setDailyBeer(null);
       } catch (err) {
         if (cancelled) return;
         setApiError(err.message);
@@ -1690,9 +1677,8 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
 
     if (userId) persistRating(userId, beerId, rating);
 
-    const activeUserId = userId || liveUserId;
     try {
-      if (activeUserId) await submitRating(activeUserId, beerId, rating);
+      if (userId) await submitRating(userId, beerId, rating);
     } catch {
       // Non-critical — local state was already updated
     }
@@ -1828,7 +1814,7 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
             {activeTab === 'beer-lists' && <BeerListsPage allBeers={allUniqueBeers} onNavigate={setActiveTab} />}
             {activeTab === 'anti-recommender' && (
               <AntiRecommenderPage
-                userId={liveUserId}
+                userId={userId}
                 onCardClick={(beer) => setSelectedBeer(beer)}
                 favorites={favorites}
                 onToggleFav={toggleFavorite}
@@ -1848,7 +1834,7 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
 
         {activeTab === 'adventurous' && (
           <AdventurousPage
-            userId={liveUserId}
+            userId={userId}
             onCardClick={(beer) => setSelectedBeer(beer)}
             favorites={favorites}
             onToggleFav={toggleFavorite}
@@ -1889,7 +1875,7 @@ const RecommenderDashboard = ({ onLogout, coldStartRecs, userId, isNewUser = fal
       />
       {showMenuUpload && (
         <MenuUpload
-          userId={userId || liveUserId}
+          userId={userId}
           onClose={() => setShowMenuUpload(false)}
           onResults={handleMenuResults}
         />

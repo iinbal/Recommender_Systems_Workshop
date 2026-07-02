@@ -341,11 +341,26 @@ def cb_recommend_from_ratings(rated_beers: dict, n: int = 10, exclude_ids=None,
         return pd.Series(dtype=float, name="cb_score")
 
     candidate_scores = similarities[candidate_indices]
-    if ascending:
-        order = np.argsort(candidate_scores)[:n]
-    else:
-        order = np.argsort(candidate_scores)[::-1][:n]
-    top_indices = [candidate_indices[i] for i in order]
+    order = np.argsort(candidate_scores) if ascending else np.argsort(candidate_scores)[::-1]
+    ranked_indices = [candidate_indices[i] for i in order]
+
+    # Cap representation per exact beer_style. Averaging several rated beers into one
+    # profile vector tends to land closest to whichever style is most internally
+    # cohesive/numerous among the ratings, so an uncapped nearest-neighbor search can
+    # return one style for almost every slot. This mirrors the same cap used in
+    # cold_start.cold_start_from_attributes.
+    STYLE_CAP = 5
+    style_by_id = item_profiles.set_index("beer_id")["beer_style"]
+    style_counts = {}
+    top_indices = []
+    for idx in ranked_indices:
+        style = style_by_id.get(beer_ids[idx])
+        if style_counts.get(style, 0) >= STYLE_CAP:
+            continue
+        style_counts[style] = style_counts.get(style, 0) + 1
+        top_indices.append(idx)
+        if len(top_indices) >= n:
+            break
 
     return pd.Series(
         similarities[top_indices],

@@ -45,7 +45,7 @@ const ColdStartRouter = ({ currentUser, onComplete }) => {
   const handleMethod2Complete = async (payload) => {
     setIsSubmitting(true);
     try {
-      const result = await submitAttributesColdStart(payload);
+      const result = await submitAttributesColdStart(currentUser.userId, payload);
       onComplete({ recs: result, ratedBeers: null });
     } catch {
       // Fall through gracefully so the dashboard still opens

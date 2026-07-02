@@ -81,11 +81,13 @@ export async function submitColdStartBeerRatings(userId, ratingsDict) {
 
 // POST /onboarding/from-attributes — Method 2 cold-start
 // payload: { taste, aroma, appearance, palate, abv_pref, styles, n }
-export async function submitAttributesColdStart(payload) {
+// userId lets the backend persist the resulting top picks as real ratings,
+// so this user's later GET /recommendations/{userId} calls succeed.
+export async function submitAttributesColdStart(userId, payload) {
   return request('/onboarding/from-attributes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, user_id: userId }),
   });
 }
 

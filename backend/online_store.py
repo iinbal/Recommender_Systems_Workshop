@@ -6,7 +6,8 @@ Tracks which beers each user has rated at runtime (for exclusion from
 future recommendations) and optional score multipliers for similar beers
 (to heuristically adjust recommendations without recomputing SVD/TF-IDF).
 
-Resets on server restart — that's intentional.
+In-memory only; api_server.py rehydrates it from new_ratings.csv on startup
+via rehydrate() so registered users' ratings survive a server restart.
 """
 
 import threading
@@ -67,3 +68,17 @@ def clear_user(user_id: str) -> None:
         _excluded.pop(user_id, None)
         _adjustments.pop(user_id, None)
         _ratings.pop(user_id, None)
+
+
+def rehydrate(rows) -> int:
+    """
+    Repopulate _ratings/_excluded from previously-persisted (user_id, beer_id, rating)
+    tuples (e.g. read back from new_ratings.csv on server startup), so a registered
+    user's personalization survives a backend restart. Returns the number of rows applied.
+    """
+    count = 0
+    for user_id, beer_id, rating in rows:
+        record_rating(user_id, beer_id, rating)
+        record_rating_value(user_id, beer_id, rating)
+        count += 1
+    return count

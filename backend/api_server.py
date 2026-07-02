@@ -12,6 +12,7 @@ import numpy as np
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sklearn.metrics.pairwise import cosine_similarity
+from contextlib import asynccontextmanager
 
 from backend.online_store import (
     record_rating, get_excluded_ids, add_score_adjustments, get_score_adjustments,
@@ -25,7 +26,7 @@ NEW_RATINGS_PATH = Path(__file__).resolve().parent.parent / "new_ratings.csv"
 
 STANDARD_CF_WEIGHT = 0.6   # CF weight for users with >= CF_WEIGHT_FULL_RATINGS ratings
 CF_WEIGHT_MIN = 0.1        # CF weight for new users with no rating history
-CF_WEIGHT_FULL_RATINGS = 50  # rating count at which CF weight reaches STANDARD_CF_WEIGHT
+CF_WEIGHT_FULL_RATINGS = 20  # rating count at which CF weight reaches STANDARD_CF_WEIGHT
 STANDARD_LAMBDA = 0.25
 STANDARD_GROUP_PENALTY = 0.5
 HYBRID_MULTIPLIER = 3
@@ -33,7 +34,25 @@ RERANK_MULTIPLIER = 2
 DEFAULT_RECOMMENDATION_NUM = 10
 MIN_FOLDIN_RATINGS = 5
 
-app = FastAPI()
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    """
+    Lifespan for the FastApi app
+    Code before the yield executes on startup and code after on shutdown
+    """
+    # Populate the store from disk
+    _rehydrate_online_store()
+
+    # Check the model artifacts
+    artifacts_dir = Path(__file__).resolve().parent.parent / "artifacts"
+    if not artifacts_dir.exists():
+        print("WARNING: artifacts/ directory not found. Pipelines are using on-the-fly computation.")
+        print("Run 'python train_models.py' to pre-compute model artifacts for faster startup.")
+    else:
+        print("artifacts/ directory found. Pipelines loaded pre-computed models.")
+    yield
+
+app = FastAPI(lifespan=app_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -97,19 +116,19 @@ def _rehydrate_online_store() -> None:
         print(f"WARNING: Failed to rehydrate online_store from {NEW_RATINGS_PATH}: {exc}")
 
 
-@app.on_event("startup")
-async def _on_startup():
-    _rehydrate_online_store()
+# @app.on_event("startup")
+# async def _on_startup():
+#     _rehydrate_online_store()
 
 
-@app.on_event("startup")
-async def check_artifacts():
-    artifacts_dir = Path(__file__).resolve().parent.parent / "artifacts"
-    if not artifacts_dir.exists():
-        print("WARNING: artifacts/ directory not found. Pipelines are using on-the-fly computation.")
-        print("Run 'python train_models.py' to pre-compute model artifacts for faster startup.")
-    else:
-        print("artifacts/ directory found. Pipelines loaded pre-computed models.")
+# @app.on_event("startup")
+# async def check_artifacts():
+#     artifacts_dir = Path(__file__).resolve().parent.parent / "artifacts"
+#     if not artifacts_dir.exists():
+#         print("WARNING: artifacts/ directory not found. Pipelines are using on-the-fly computation.")
+#         print("Run 'python train_models.py' to pre-compute model artifacts for faster startup.")
+#     else:
+#         print("artifacts/ directory found. Pipelines loaded pre-computed models.")
 
 
 @app.get("/")

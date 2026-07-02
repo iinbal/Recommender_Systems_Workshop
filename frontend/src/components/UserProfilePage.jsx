@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getUserRecord, updateDisplayName, updatePassword } from '../services/authService';
 import { getBeerImage } from '../utils/beerImages';
+import { getBeerDetails } from '../services/apiService';
 
 // ─── Shared UI primitives ────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ const djb2 = (str) => {
 const buildFriendRatings = (friendName, beers) =>
   beers.reduce((acc, beer) => {
     const key = `${friendName}|${beer.id}`;
-    if (djb2(key) % 10 < 6) acc[String(beer.id)] = 1 + (djb2(key + '_r') % 5);
+    if (djb2(key) % 10 < 9) acc[String(beer.id)] = 1 + (djb2(key + '_r') % 5);
     return acc;
   }, {});
 
@@ -103,17 +104,63 @@ const UserProfilePage = ({ userId, userRatings = {}, allUniqueBeers = [] }) => {
     return merged;
   }, [record, userRatings]);
 
+  // Friend compatibility must compare against beers the user has actually rated, not
+  // whatever happens to be in the current (volatile) recommendation feed — a rated beer
+  // is excluded from the user's own future feeds, so allUniqueBeers would almost never
+  // overlap with normalizedUserRatings. Beer-card details for rated IDs not already
+  // present in allUniqueBeers are fetched here so this list stays stable across refreshes.
+  const [ratedBeerCards, setRatedBeerCards] = useState([]);
+  const [ratedBeersLoading, setRatedBeersLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ratedIds = Object.keys(normalizedUserRatings);
+
+    if (ratedIds.length === 0) {
+      setRatedBeerCards([]);
+      setRatedBeersLoading(false);
+      return;
+    }
+
+    setRatedBeersLoading(true);
+    const knownById = new Map(allUniqueBeers.map((b) => [String(b.id), b]));
+    const missingIds = ratedIds.filter((id) => !knownById.has(String(id)));
+
+    Promise.all(
+      missingIds.map((id) =>
+        getBeerDetails(id)
+          .then((beer) => ({
+            id: beer.beer_id,
+            name: beer.beer_name,
+            style: beer.beer_style,
+            abv: beer.beer_abv,
+            rating: beer.avg_overall_rating,
+          }))
+          .catch(() => null)
+      )
+    ).then((fetched) => {
+      if (cancelled) return;
+      const known = ratedIds
+        .filter((id) => knownById.has(String(id)))
+        .map((id) => knownById.get(String(id)));
+      setRatedBeerCards([...known, ...fetched.filter(Boolean)]);
+      setRatedBeersLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [normalizedUserRatings, allUniqueBeers]);
+
   const friendRatings = useMemo(
-    () => selectedFriend ? buildFriendRatings(selectedFriend, allUniqueBeers) : {},
-    [selectedFriend, allUniqueBeers]
+    () => selectedFriend ? buildFriendRatings(selectedFriend, ratedBeerCards) : {},
+    [selectedFriend, ratedBeerCards]
   );
 
   const { sharedBeers, compatibility, sharedFavorites } = useMemo(() => {
-    if (!selectedFriend || !allUniqueBeers.length) {
+    if (!selectedFriend || ratedBeersLoading || !ratedBeerCards.length) {
       return { sharedBeers: [], compatibility: null, sharedFavorites: [] };
     }
 
-    const shared = allUniqueBeers.filter((beer) => {
+    const shared = ratedBeerCards.filter((beer) => {
       const id = String(beer.id);
       return normalizedUserRatings[id] != null && friendRatings[id] != null;
     });
@@ -136,7 +183,7 @@ const UserProfilePage = ({ userId, userRatings = {}, allUniqueBeers = [] }) => {
     });
 
     return { sharedBeers: shared, compatibility: pct, sharedFavorites: favorites };
-  }, [selectedFriend, allUniqueBeers, normalizedUserRatings, friendRatings]);
+  }, [selectedFriend, ratedBeerCards, ratedBeersLoading, normalizedUserRatings, friendRatings]);
 
   // ── Early return after all hooks ──────────────────────────────────────────
   if (!record) {
@@ -252,7 +299,11 @@ const UserProfilePage = ({ userId, userRatings = {}, allUniqueBeers = [] }) => {
 
         {selectedFriend && (
           <div style={{ marginTop: '1.25rem' }}>
-            {compatibility === null ? (
+            {ratedBeersLoading ? (
+              <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
+                Loading your ratings&hellip;
+              </p>
+            ) : compatibility === null ? (
               <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
                 Not enough shared ratings to calculate compatibility. Rate more beers to see your match with {selectedFriend.split(' ')[0]}!
               </p>

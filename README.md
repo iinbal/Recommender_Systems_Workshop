@@ -1,5 +1,6 @@
-<img src="frontend/src/assets/RuBeer%20Logo.png" alt="Logo" width="140">
-
+<p align="center">
+    <img src="frontend/src/assets/RuBeer%20Logo.png" alt="Logo" width="140">
+</p>
 
 # Beer Recommender System
 

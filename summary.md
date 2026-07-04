@@ -13,7 +13,7 @@ Both JSON files are ingested via `data_processing/process_json.py` into PostgreS
 
 ### Frontend
 
-- **React + Vite** — single-page application with tab-based dashboard, beer card rendering, and a Demo Data toggle for standalone exploration.
+- **React + Vite** — single-page application with tab-based dashboard, beer card rendering.
 
 ### Backend
 

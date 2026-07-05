@@ -36,6 +36,7 @@ HYBRID_MULTIPLIER = 3
 RERANK_MULTIPLIER = 2
 DEFAULT_RECOMMENDATION_NUM = 10
 MIN_FOLDIN_RATINGS = 5
+ADVENTURE_MIN_POOL_MULTIPLIER = 5  # mid_range must be this many times rec_num for real sampling variety
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
@@ -366,7 +367,9 @@ async def get_adventurous_recommendations(user_id: str, rec_num: int = DEFAULT_R
     # Filter to the 0.80–0.95 score band for genuine taste divergence
     mid_range = large_pool[(large_pool >= 0.80) & (large_pool <= 0.95)]
 
-    if mid_range.empty:
+    # If the band is too small relative to rec_num, sampling degenerates into
+    # returning the entire (deterministic) band every time — widen the pool instead.
+    if len(mid_range) < rec_num * ADVENTURE_MIN_POOL_MULTIPLIER:
         mid_range = large_pool.iloc[50:]
 
     sample_size = min(rec_num, len(mid_range))

@@ -298,7 +298,7 @@ def cb_recommend(user_id: str, n: int = 10, exclude_ids=None, ascending: bool = 
 
 
 def cb_recommend_from_ratings(rated_beers: dict, n: int = 10, exclude_ids=None,
-                               ascending: bool = False) -> pd.Series:
+                               ascending: bool = False, specific=None) -> pd.Series:
     """
     CB recommendations for a user not in the training data, built directly
     from their session ratings.
@@ -306,6 +306,8 @@ def cb_recommend_from_ratings(rated_beers: dict, n: int = 10, exclude_ids=None,
     Parameters
     ----------
     rated_beers : {beer_id: rating (1-5 scale)} from online_store
+    specific    : if given, return only this beer's similarity score instead
+                  of a top-n ranking (mirrors cb_recommend's specific param)
     """
     # Type-flexible lookup — handle int/str mismatches between demo and real data
     valid = {}
@@ -334,6 +336,9 @@ def cb_recommend_from_ratings(rated_beers: dict, n: int = 10, exclude_ids=None,
     ).reshape(1, -1)
 
     similarities = cosine_similarity(user_profile, beer_feature_matrix).flatten()
+
+    if specific:
+        return pd.Series(similarities, index=beer_ids)[specific]
 
     exclude_str = {str(b) for b in valid} | {str(b) for b in (exclude_ids or [])}
     candidate_indices = [

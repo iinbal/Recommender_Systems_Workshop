@@ -330,6 +330,7 @@ async def get_beer_compatability(user_id: str, beer_id:str):
     - Predicted compatability score
     """
     beer_id = _cast_beer_id_for_pipeline(beer_id)
+    session_ratings = get_user_ratings(user_id)
 
     try:
         cf_score = cf.cf_recommend(user_id, specific = beer_id)
@@ -341,9 +342,21 @@ async def get_beer_compatability(user_id: str, beer_id:str):
     except ValueError:
         cb_score = None
 
+    # New-user fallback: score directly from session ratings (mirrors the
+    # cold-start path in get_user_rec_candidates/get_user_anti_candidates).
+    if cf_score is None and cb_score is None and session_ratings:
+        try:
+            cb_score = cb.cb_recommend_from_ratings(session_ratings, specific=beer_id)
+        except ValueError:
+            pass
+        if len(session_ratings) >= MIN_FOLDIN_RATINGS:
+            try:
+                cf_score = cf.cf_recommend_new_user(session_ratings, specific=beer_id)
+            except ValueError:
+                pass
+
     if cf_score is not None and cb_score is not None:
         # Compute per-user CF weight: more ratings → more trust in CF signal
-        session_ratings = get_user_ratings(user_id)
         historical_count = cf.R_sparse.getrow(cf.user_id_to_index[user_id]).nnz if user_id in cf.user_id_to_index else 0
         cf_weight = get_cf_weight(historical_count + len(session_ratings))
 
@@ -736,7 +749,7 @@ async def onboarding_hybrid(payload: dict = Body(...)):
 
     # Blend M1 and M2
     if m1_scores is not None and m2_scores is not None:
-        alpha = min(len(rated_beers) / 5.0, 1.0)
+        alpha = cf.cf_trust_ramp(len(rated_beers), MIN_FOLDIN_RATINGS)
         all_ids = m1_scores.index.union(m2_scores.index)
         m1_aligned = m1_scores.reindex(all_ids, fill_value=0.0)
         m2_aligned = m2_scores.reindex(all_ids, fill_value=0.0)
@@ -759,8 +772,7 @@ async def onboarding_hybrid(payload: dict = Body(...)):
 def get_cf_weight(rating_count: int) -> float:
     """Return CF blend weight scaled linearly by the user's total rating count.
     Ramps from CF_WEIGHT_MIN (0 ratings) to STANDARD_CF_WEIGHT (CF_WEIGHT_FULL_RATINGS+)."""
-    t = min(rating_count / CF_WEIGHT_FULL_RATINGS, 1.0)
-    return CF_WEIGHT_MIN + t * (STANDARD_CF_WEIGHT - CF_WEIGHT_MIN)
+    return cf.cf_trust_ramp(rating_count, CF_WEIGHT_FULL_RATINGS, CF_WEIGHT_MIN, STANDARD_CF_WEIGHT)
 
 
 def hybridize_candidates(cf_scores: pd.Series, cb_scores: pd.Series, candidate_num: int = 1, cf_weight: float = STANDARD_CF_WEIGHT) -> pd.Series:

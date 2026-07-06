@@ -21,7 +21,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 import cb_pipeline as cb
 from cb_pipeline import item_profiles, beer_feature_matrix, preprocessor, beer_ids
-from cf_pipeline import cf_recommend_new_user
+from cf_pipeline import cf_recommend_new_user, cf_trust_ramp
 
 
 # cluster id -> set of beer_style values for that cluster
@@ -215,7 +215,7 @@ def cold_start_from_ratings(
         except ValueError:
             cf_scores = pd.Series(dtype=float)
 
-    cf_weight = 0.6 * min(len(rated_beers) / 5.0, 1.0)
+    cf_weight = cf_trust_ramp(len(rated_beers), full_ratings=5, ceiling=0.6)
 
     if not cb_scores.empty and not cf_scores.empty:
         all_ids = cf_scores.index.union(cb_scores.index)

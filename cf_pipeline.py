@@ -358,7 +358,7 @@ def cf_recommend(user_id: str, n: int = 10, exclude_ids=None, ascending: bool = 
 
 
 def cf_recommend_new_user(rated_beers: dict, n: int = 10, exclude_ids=None,
-                           ascending: bool = False) -> pd.Series:
+                           ascending: bool = False, specific=None) -> pd.Series:
     """
     CF recommendations for a brand-new user not in the training matrix.
 
@@ -370,6 +370,8 @@ def cf_recommend_new_user(rated_beers: dict, n: int = 10, exclude_ids=None,
     Parameters
     ----------
     rated_beers : {beer_id: rating (1-5 scale)} from session
+    specific    : if given, return only this beer's predicted score instead
+                  of a top-n ranking (mirrors cf_recommend's specific param)
     """
     r = np.zeros(n_beers)
     for bid, rating in rated_beers.items():
@@ -389,6 +391,9 @@ def cf_recommend_new_user(rated_beers: dict, n: int = 10, exclude_ids=None,
     predictions = np.clip(u_new @ V.T + user_mean, 0.0, 1.0)
 
     scores = pd.Series(predictions, index=beer_ids)
+    if specific:
+        return scores[specific]
+
     exclude_str = {str(b) for b in rated_beers} | {str(b) for b in (exclude_ids or [])}
     scores = scores[[b for b in scores.index if str(b) not in exclude_str]]
     return scores.nsmallest(n) if ascending else scores.nlargest(n)
@@ -440,6 +445,16 @@ def cf_recommend_updated(user_id: str, session_ratings: dict, n: int = 10,
     scores = scores[[b for b in scores.index if str(b) not in exclude_str]]
     return scores.nsmallest(n) if ascending else scores.nlargest(n)
 
+
+def cf_trust_ramp(rating_count: int, full_ratings: int, floor: float = 0.0, ceiling: float = 1.0) -> float:
+    """
+    Linearly ramp a weight from `floor` (0 ratings) to `ceiling` (>= full_ratings
+    ratings), used anywhere a blend needs to trust a CF/fold-in signal more as a
+    user accumulates ratings. Shared so this "trust ramp" shape isn't
+    reimplemented slightly differently at each call site.
+    """
+    t = min(rating_count / full_ratings, 1.0)
+    return floor + t * (ceiling - floor)
 
 
 # ─────────────────────────────────────────────

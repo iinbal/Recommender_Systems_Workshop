@@ -399,10 +399,10 @@ async def get_anti_recommendations(user_id: str, rec_num: int = DEFAULT_RECOMMEN
     }
 
 load_dotenv()  # Load environment variables from .env file
-_sivan_client = genai.Client() if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") else None
+_Stav_client = genai.Client() if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") else None
 
 @app.post("/api/chat")
-async def chat_with_sivan(payload: dict = Body(...)):
+async def chat_with_Stav(payload: dict = Body(...)):
     """
     Endpoint to handle incoming chat messages using RAG (Retrieval-Augmented Generation).
     """
@@ -411,7 +411,7 @@ async def chat_with_sivan(payload: dict = Body(...)):
     # ---------------------------------------------------------
     # STEP 1: THE RETRIEVAL (Gathering context from your DB)
     # ---------------------------------------------------------
-    # For now, let's grab the top 5 highest-rated beers so Sivan has something to talk about.
+    # For now, let's grab the top 5 highest-rated beers so Stav has something to talk about.
     # Later, you can do a regex search on user_message to find specific styles!
     top_beers_df = cb.item_profiles.nlargest(5, "avg_overall_rating")
     
@@ -421,10 +421,10 @@ async def chat_with_sivan(payload: dict = Body(...)):
         beer_context += f"- {row['beer_name']} (Style: {row['beer_style']}, ABV: {row['beer_abv']}%, Rating: {row.get('avg_overall_rating', 0):.2f})\n"
 
     # ---------------------------------------------------------
-    # STEP 2: THE SYSTEM PROMPT (Sivan's Persona + Knowledge)
+    # STEP 2: THE SYSTEM PROMPT (Stav's Persona + Knowledge)
     # ---------------------------------------------------------
     system_prompt = f"""
-    You are Sivan, the friendly, knowledgeable AI assistant for the RuBeer recommendation system.
+    You are Stav, the friendly, knowledgeable AI assistant for the RuBeer recommendation system.
     
     [BEER KNOWLEDGE]
     Here is the current list of top-rated beers you can recommend:
@@ -449,11 +449,11 @@ async def chat_with_sivan(payload: dict = Body(...)):
     # STEP 3: THE GENERATION (Calling the LLM)
     # ---------------------------------------------------------
     try:
-        if _sivan_client is None:
+        if _Stav_client is None:
             raise RuntimeError("Gemini API key is not configured.")
 
         # Generate the response asynchronously so we don't block the FastAPI server
-        response = await _sivan_client.aio.models.generate_content(
+        response = await _Stav_client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=user_message,
             config=types.GenerateContentConfig(system_instruction=system_prompt),

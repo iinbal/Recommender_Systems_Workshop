@@ -5,7 +5,7 @@ import LandingPage from './components/LandingPage';
 import './components/Dashboard.css';
 import { saveColdStartRatings } from './services/authService';
 import ColdStartRouter from './components/ColdStartRouter';
-import SivanAssistant from './components/SivanAssistant'; 
+import StavAssistant from './components/StavAssistant'; 
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -80,7 +80,7 @@ function App() {
   return (
     <>
       {renderCurrentScreen()}
-      {isLoggedIn && <SivanAssistant />}
+      {isLoggedIn && <StavAssistant />}
     </>
   );
 }

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import sivanAvatar from '../assets/SivanAIAssistant.png';
+import StavAvatar from '../assets/StavAIAssistant.png';
 
-const SivanAssistant = () => {
+const Stavassistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   
   const [messages, setMessages] = useState([
-    { sender: 'Sivan', text: "Hey! I'm Sivan your AI assistant. Ask me anything about RuBeer!" }
+    { sender: 'Stav', text: "Hey! I'm Stav your AI assistant. Ask me anything about RuBeer!" }
   ]);
 
   const toggleChat = () => setIsOpen(!isOpen);
@@ -32,12 +32,12 @@ const SivanAssistant = () => {
 
       const data = await response.json();
 
-      // 3. Display Sivan's real response from the server
-      setMessages(prev => [...prev, { sender: 'Sivan', text: data.reply }]);
+      // 3. Display Stav's real response from the server
+      setMessages(prev => [...prev, { sender: 'Stav', text: data.reply }]);
       
     } catch (error) {
-      console.error("Error talking to Sivan:", error);
-      setMessages(prev => [...prev, { sender: 'Sivan', text: "Sorry, I'm having trouble connecting to the server right now!" }]);
+      console.error("Error talking to Stav:", error);
+      setMessages(prev => [...prev, { sender: 'Stav', text: "Sorry, I'm having trouble connecting to the server right now!" }]);
     }
   };
 
@@ -48,7 +48,7 @@ const SivanAssistant = () => {
           
           {/* Top Header (Orange) */}
           <div style={styles.chatHeader}>
-            <span>Chat with Sivan</span>
+            <span>Chat with Stav</span>
             <div>
               <button onClick={toggleChat} style={styles.iconButton}>_</button>
               <button onClick={toggleChat} style={styles.iconButton}>X</button>
@@ -59,7 +59,7 @@ const SivanAssistant = () => {
           */}
           <div style={{
             ...styles.chatBodyWrapper,
-            backgroundImage: `url(${sivanAvatar})`
+            backgroundImage: `url(${StavAvatar})`
           }}>
             
             {/* 
@@ -68,10 +68,10 @@ const SivanAssistant = () => {
               {messages.map((msg, index) => (
                 <div key={index} style={{
                   ...styles.messageBubble,
-                  backgroundColor: msg.sender === 'Sivan' ? 'rgba(34, 34, 34, 0.95)' : 'rgba(255, 152, 0, 0.95)',
-                  color: msg.sender === 'Sivan' ? '#ff9800' : '#000', 
-                  alignSelf: msg.sender === 'Sivan' ? 'flex-start' : 'flex-end',
-                  border: msg.sender === 'Sivan' ? '1px solid #ff9800' : 'none'
+                  backgroundColor: msg.sender === 'Stav' ? 'rgba(34, 34, 34, 0.95)' : 'rgba(255, 152, 0, 0.95)',
+                  color: msg.sender === 'Stav' ? '#ff9800' : '#000', 
+                  alignSelf: msg.sender === 'Stav' ? 'flex-start' : 'flex-end',
+                  border: msg.sender === 'Stav' ? '1px solid #ff9800' : 'none'
                 }}>
                   <strong>{msg.sender}: </strong>{msg.text}
                 </div>
@@ -85,7 +85,7 @@ const SivanAssistant = () => {
               type="text" 
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask Sivan or Create a Dialogue..." 
+              placeholder="Ask Stav or Create a Dialogue..." 
               style={styles.inputField}
             />
             <button type="submit" style={styles.sendButton}>➤</button>
@@ -94,12 +94,12 @@ const SivanAssistant = () => {
       ) : (
         <div style={styles.closedContainer}>
           <div onClick={toggleChat} style={styles.tooltipBubble}>
-            Hey! I'm Sivan, your AI Assistant. Ask me anything about RuBeer!
+            Hey! I'm Stav, your AI Assistant. Ask me anything about RuBeer!
           </div>
           <button onClick={toggleChat} style={styles.avatarButton}>
             <img 
-              src={sivanAvatar} 
-              alt="Sivan AI Assistant" 
+              src={StavAvatar} 
+              alt="Stav AI Assistant" 
               style={styles.avatarImage} 
             />
           </button>
@@ -253,4 +253,4 @@ const styles = {
   }
 };
 
-export default SivanAssistant;
+export default Stavassistant;

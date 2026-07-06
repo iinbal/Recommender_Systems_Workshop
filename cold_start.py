@@ -96,7 +96,8 @@ def cold_start_from_attributes(
 
     Returns
     -------
-    pd.Series  index = beer_id, values = cold-start score, sorted desc
+    pd.Series  index = beer_id, values = cold-start score in [-1, 1]
+               (0.7*numeric cosine similarity + 0.3*style-cluster fraction), sorted desc
     """
 
     # 1. Map importance scores (1-5) to target raw values using quantile lookup
@@ -120,12 +121,13 @@ def cold_start_from_attributes(
     numeric_scaler = preprocessor.named_transformers_["numeric"]
     scaled_vector = numeric_scaler.transform(raw_vector.reshape(1, -1))
 
-    # 4. Compute cosine similarity against beer_numeric_matrix
+    # 4. Compute cosine similarity against beer_numeric_matrix. Left as raw cosine
+    # similarity (naturally in [-1,1]) rather than batch-relative min-max stretched —
+    # a stretch would force the top of *this one quiz's* results to always read ~1.0
+    # regardless of how good the actual match is, and wouldn't be comparable across
+    # different quiz answers or with the rest of the system's [-1,1]-scaled scores.
     numeric_scores = cosine_similarity(scaled_vector, beer_numeric_matrix).flatten()
     numeric_series = pd.Series(numeric_scores, index=item_profiles["beer_id"].values)
-    rng = numeric_series.max() - numeric_series.min()
-    if rng > 0:
-        numeric_series = (numeric_series - numeric_series.min()) / rng
 
     # 5. Compute style-cluster score
     taste_scores = pd.Series(0.0, index=item_profiles.index)
@@ -142,9 +144,6 @@ def cold_start_from_attributes(
         taste_scores.values,
         index=item_profiles["beer_id"].values,
     )
-    rng = style_series.max() - style_series.min()
-    if rng > 0:
-        style_series = (style_series - style_series.min()) / rng
 
     # 6. Blend: 70% numeric profile match, 30% style cluster match
     final = 0.7 * numeric_series + 0.3 * style_series

@@ -684,7 +684,10 @@ async def onboarding_from_attributes(payload: dict = Body(...)):
 
     if user_id:
         for beer_id, score in scores.nlargest(10).items():
-            synthetic_rating = 1 + round(float(np.clip(score, 0.0, 1.0)) * 4)
+            # cold_start_from_attributes scores are in [-1, 1]; clamp-and-remap to [0,1]
+            # (same shape as the frontend's toMatchFraction) before scaling to 1-5 stars.
+            normalized = (max(-1.0, min(1.0, float(score))) + 1) / 2
+            synthetic_rating = 1 + round(normalized * 4)
             _record_and_persist_rating(user_id, beer_id, synthetic_rating)
 
     reranked = rerank_recommendations(scores, n)

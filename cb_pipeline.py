@@ -91,7 +91,12 @@ if _CB_ARTIFACTS_READY:
 
     beer_feature_matrix = load_npz(ARTIFACTS_DIR / "cb_feature_matrix.npz")
     item_profiles = pd.read_csv(ARTIFACTS_DIR / "cb_item_profiles.csv")
+    # cb_beer_ids.npy is saved as str, but beer_id round-trips as int64 through CSV --
+    # normalize here so item_profiles/train_df line up with beer_id_to_index's str keys
+    # (mirrors the same defensive cast train_models.py already applies to itself).
+    item_profiles["beer_id"] = item_profiles["beer_id"].astype(str)
     train_df = pd.read_csv(ARTIFACTS_DIR / "cb_train_df.csv")
+    train_df["beer_id"] = train_df["beer_id"].astype(str)
     beer_ids = np.load(ARTIFACTS_DIR / "cb_beer_ids.npy", allow_pickle=True)
     beer_id_to_index = {beer_id: idx for idx, beer_id in enumerate(beer_ids)}
     preprocessor = joblib.load(ARTIFACTS_DIR / "cb_preprocessor.joblib")
@@ -262,9 +267,8 @@ def cb_recommend(user_id: str, n: int = 10, exclude_ids=None, ascending: bool = 
     ).flatten()
 
     if specific:
-        beer_index = np.where(beer_ids == specific)[0]
-        return similarities[beer_index]
-        
+        return pd.Series(similarities, index=beer_ids)[specific]
+
     already_rated = set(train_df[train_df["username"] == user_id]["beer_id"])
 
     candidate_indices = [

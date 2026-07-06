@@ -69,7 +69,7 @@ The system has three main layers: a React frontend, a FastAPI backend, and a pai
 
 - **VS Code + Claude** — used for both backend and frontend development.
 - **PowerShell / terminal** — used for running scripts, managing services, and testing API endpoints.
-- **pytest** — 102 unit tests (`test_pipelines.py`) and integration tests (`test_integration.py`).
+- **pytest** — 138 unit tests (`test_pipelines.py`) and integration tests (`test_integration.py`).
 
 &nbsp;<br>
 

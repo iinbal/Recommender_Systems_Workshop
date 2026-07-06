@@ -334,12 +334,14 @@ async def get_beer_compatability(user_id: str, beer_id:str):
 
     try:
         cf_score = cf.cf_recommend(user_id, specific = beer_id)
-    except ValueError:
+    except (ValueError, KeyError):
+        # KeyError: beer_id isn't in the catalog (specific= does plain Series
+        # indexing); ValueError: user_id isn't in the trained CF matrix.
         cf_score = None
 
     try:
         cb_score = cb.cb_recommend(user_id, specific = beer_id)
-    except ValueError:
+    except (ValueError, KeyError):
         cb_score = None
 
     # New-user fallback: score directly from session ratings (mirrors the
@@ -347,12 +349,12 @@ async def get_beer_compatability(user_id: str, beer_id:str):
     if cf_score is None and cb_score is None and session_ratings:
         try:
             cb_score = cb.cb_recommend_from_ratings(session_ratings, specific=beer_id)
-        except ValueError:
+        except (ValueError, KeyError):
             pass
         if len(session_ratings) >= MIN_FOLDIN_RATINGS:
             try:
                 cf_score = cf.cf_recommend_new_user(session_ratings, specific=beer_id)
-            except ValueError:
+            except (ValueError, KeyError):
                 pass
 
     if cf_score is not None and cb_score is not None:

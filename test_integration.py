@@ -61,16 +61,6 @@ def test_health_check(client):
     assert "message" in response.json()
 
 
-def test_quiz_endpoint(client):
-    response = client.get("/quiz")
-    assert response.status_code == 200
-    body = response.json()
-    assert "questions" in body
-    for question in body["questions"]:
-        assert "id" in question
-        assert "options" in question
-
-
 def test_recommendations_valid_user(client, sample_user):
     response = client.get(f"/recommendations/{sample_user}")
     assert response.status_code == 200
@@ -92,18 +82,6 @@ def test_recommendations_custom_count(client, sample_user):
     assert response.status_code == 200
     body = response.json()
     assert len(body["recommended_ids"]) <= 5
-    assert len(body["recommended_ids"]) == len(body["scores"])
-
-
-def test_cold_start(client):
-    response = client.post(
-        "/recommendations/cold-start",
-        json={"answers": {"hoppy": 5, "dark": 1, "sour": 1, "light": 2}},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert "recommended_ids" in body
-    assert "scores" in body
     assert len(body["recommended_ids"]) == len(body["scores"])
 
 
@@ -146,6 +124,147 @@ def test_group_recommendations(client, sample_users):
     assert "recommended_ids" in body
     assert "scores" in body
     assert len(body["recommended_ids"]) == len(body["scores"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADVENTUROUS / ANTI-RECOMMENDER LISTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_adventurous_recommendations(client, sample_user):
+    response = client.get(f"/recommendations/{sample_user}/adventurous?rec_num=5")
+    assert response.status_code == 200
+    body = response.json()
+    assert "recommended_ids" in body
+    assert "scores" in body
+    assert len(body["recommended_ids"]) == len(body["scores"])
+    assert len(body["recommended_ids"]) <= 5
+
+
+def test_adventurous_recommendations_invalid_user(client):
+    response = client.get("/recommendations/unknown_user_99999/adventurous")
+    assert response.status_code == 404
+
+
+def test_anti_recommendations(client, sample_user):
+    response = client.get(f"/recommendations/{sample_user}/anti?rec_num=5")
+    assert response.status_code == 200
+    body = response.json()
+    assert "recommended_ids" in body
+    assert "scores" in body
+    assert len(body["recommended_ids"]) == len(body["scores"])
+    assert len(body["recommended_ids"]) <= 5
+
+
+def test_anti_recommendations_invalid_user(client):
+    response = client.get("/recommendations/unknown_user_99999/anti")
+    assert response.status_code == 404
+
+
+def test_anti_recommendations_disjoint_from_top_recommendations(client, sample_user):
+    """Anti-recs (the model's worst predictions) should never overlap with its
+    best (top recommendations) for the same user."""
+    top = client.get(f"/recommendations/{sample_user}?rec_num=10").json()
+    anti = client.get(f"/recommendations/{sample_user}/anti?rec_num=10").json()
+    assert set(top["recommended_ids"]).isdisjoint(set(anti["recommended_ids"]))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SINGLE-BEER COMPATIBILITY SCORE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_beer_compatibility_valid(client, sample_user, sample_beer):
+    response = client.get(f"/recommendations/{sample_user}/beer/{sample_beer}")
+    assert response.status_code == 200
+    body = response.json()
+    assert sample_beer in body
+    assert isinstance(body[sample_beer], (int, float))
+
+
+def test_beer_compatibility_invalid_beer(client, sample_user):
+    """An unknown beer_id must 404, not 500 (regression: specific= mode used to
+    raise an uncaught KeyError for garbage input)."""
+    response = client.get(f"/recommendations/{sample_user}/beer/nonexistent_beer_99999")
+    assert response.status_code == 404
+
+
+def test_beer_compatibility_invalid_user(client, sample_beer):
+    response = client.get(f"/recommendations/unknown_user_99999/beer/{sample_beer}")
+    assert response.status_code == 404
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ONBOARDING (COLD-START) ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_onboarding_from_attributes(client):
+    response = client.post("/onboarding/from-attributes", json={
+        "taste": 4, "aroma": 3, "appearance": 3, "palate": 4,
+        "abv_pref": "medium", "styles": ["IPA"], "n": 5,
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert "recommended_ids" in body
+    assert "scores" in body
+    assert len(body["recommended_ids"]) == len(body["scores"])
+    assert len(body["recommended_ids"]) <= 5
+
+
+def test_onboarding_from_attributes_requires_a_style(client):
+    response = client.post("/onboarding/from-attributes", json={
+        "taste": 4, "aroma": 3, "appearance": 3, "palate": 4,
+        "abv_pref": "medium", "styles": [],
+    })
+    assert response.status_code == 422
+
+
+def test_onboarding_from_attributes_rejects_out_of_range_score(client):
+    response = client.post("/onboarding/from-attributes", json={
+        "taste": 10, "aroma": 3, "appearance": 3, "palate": 4,
+        "abv_pref": "medium", "styles": ["IPA"],
+    })
+    assert response.status_code == 422
+
+
+def test_onboarding_from_attributes_persists_synthetic_ratings(client, sample_user):
+    """Passing a user_id should persist the top-10 picks as real (1-5 star)
+    ratings in the online store, so this user's later /recommendations calls
+    have fold-in signal instead of falling back to a cold-start path."""
+    from backend.online_store import clear_user, get_user_ratings
+    clear_user(sample_user)
+
+    response = client.post("/onboarding/from-attributes", json={
+        "user_id": sample_user,
+        "taste": 4, "aroma": 3, "appearance": 3, "palate": 4,
+        "abv_pref": "medium", "styles": ["IPA"], "n": 5,
+    })
+    assert response.status_code == 200
+
+    ratings = get_user_ratings(sample_user)
+    assert len(ratings) == 10
+    assert all(1 <= r <= 5 for r in ratings.values())
+
+    clear_user(sample_user)
+
+
+def test_onboarding_hybrid_blends_rated_beers_and_attributes(client, sample_beer):
+    response = client.post("/onboarding/hybrid", json={
+        "rated_beers": {sample_beer: 5},
+        "attributes": {
+            "taste": 4, "aroma": 3, "appearance": 3, "palate": 4,
+            "abv_pref": "medium", "styles": ["IPA"],
+        },
+        "n": 5,
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert "recommended_ids" in body
+    assert "scores" in body
+    assert len(body["recommended_ids"]) == len(body["scores"])
+
+
+def test_onboarding_hybrid_requires_at_least_one_signal(client):
+    response = client.post("/onboarding/hybrid", json={"n": 5})
+    assert response.status_code == 400
 
 
 # ─────────────────────────────────────────────────────────────────────────────

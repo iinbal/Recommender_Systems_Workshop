@@ -51,7 +51,7 @@ A search-driven catalog browser (`DiscoverPage`) for finding any beer in the dat
 ![Explore](Images/explore.jpg)
 
 ### Build a 6-Pack
-Generates a themed 6-pack of beer recommendations (e.g. "Hoppy & Bitter", "BBQ Pairings"), which can be saved into a named, organized list for later.
+Generates curated 6-packs of beer recommendations tailored to your personal taste, or the shared preferences of you and your friends. You can choose exactly how many 6-packs to generate at once, and save them all into named, organized lists for later.
 
 ![Build a 6-Pack](Images/sixpack.jpeg)
 
@@ -61,12 +61,12 @@ From the beer detail modal, a user can send a specific beer, with an optional no
 ![Share a Beer](Images/share.jpg)
 
 ### Beer Lists
-User-curated collections of beers, organized into named sections (e.g. "Winter Stouts", "Gifts for Friends"), where beers can be added, browsed, or removed per list.
+User-curated and built in collections of beers, organized into named sections, where beers can be added, browsed, or removed per list.
 
 ![Beer Lists](Images/beer_list.jpg)
 
 ### Favorites
-A quick-access wishlist of beers the user has marked with the bottle/favorite icon, for one-click return visits without re-searching.
+A quick-access wishlist of beers the user has marked with the favorite icon, for one-click return visits without re-searching.
 
 ![Favorites](Images/faves.jpg)
 
@@ -76,7 +76,7 @@ An inbox of beers other users have shared, each with the sender's note, and an u
 ![Shared With Me](Images/Shared_with_me.jpg)
 
 ### User Profile
-Account management: update display name and password, and review ratings history, plus the Friend Compatibility widget described below.
+Account Management: Update your display name and password, track your total ratings, and view your 'RuBeer Rank' based on your rating activity. This section also includes the Friend Compatibility widget (described below).
 
 ![Profile](Images/profile.jpg)
 

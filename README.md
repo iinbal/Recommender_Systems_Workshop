@@ -38,6 +38,6 @@ More information can be found on the [Workshop Website](https://courses.cs.tau.a
 
 Here is a screenshot of the application interface:
 
-![Application Screenshot](images/mainpage.jpeg)
-![Application Screenshot](images/inspectbeer.jpeg)
-![Application Screenshot](images/sixpack.jpeg)
+![Application Screenshot](Images/mainpage.jpeg)
+![Application Screenshot](Images/inspectbeer.jpeg)
+![Application Screenshot](Images/sixpack.jpeg)

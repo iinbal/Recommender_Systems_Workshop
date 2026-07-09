@@ -86,12 +86,12 @@ Lets the user pick a friend from their profile and computes a compatibility perc
 ![friends](Images/friendcomp.jpg)
 
 ### Rubi's Daily Recommendation
-A hero card on the home page spotlighting one standout beer pick per session — deliberately chosen to stand apart from the swimlanes below rather than duplicate them.
+A hero card on the home page spotlighting one standout beer pick per session.
 
 ![DailyRec](Images/DailyREc.jpg)
 
 ### Feeling Adventurous
-A recommendation lane that intentionally surfaces beers outside the user's usual taste profile, encouraging exploration beyond their historical preferences.
+A recommendation lane that intentionally surfaces beers outside the user's usual taste profile, encouraging exploration beyond their normal preferences.
 
 ![Feeling Adventurous](Images/adventurous.jpg)
 
@@ -106,7 +106,7 @@ A global, non-personalized leaderboard of the highest-rated beers across the ent
 ![Top 50 Rated All-Time](Images/top50.jpg)
 
 ### Scan Menu
-Upload a photo of a bar/restaurant menu; the backend extracts the beer names from the image and returns personalized match scores for whichever of those beers exist in the catalog.
+Upload a photo of a beer menu; the backend extracts the beer names from the image and returns personalized match scores for whichever of those beers exist in the catalog.
 
 ![Scan Menu](Images/scan1.jpg)
 ![Scan Menu](Images/scan2.jpg)

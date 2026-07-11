@@ -47,7 +47,7 @@ Both JSON files are ingested via `data_processing/process_json.py` into PostgreS
 
 - **Collaborative Filtering (sparse SVD)** — factorises the user–item rating matrix into latent factors; used for personalised recommendations for existing users. Supports real-time fold-in so new ratings are reflected immediately without retraining.
 - **Content-Based (TF-IDF + cosine similarity)** — represents each beer as a feature vector and finds similar beers based on style, brewery, and text. Updates continuously as the user rates beers.
-- **Hybrid blending** — CF and CB scores are linearly blended for the main recommendation feed. The CF weight is adapted per-user based on rating count: new users get more CB weight (content signal is more reliable with sparse history), while experienced users get more CF weight (collaborative signal improves with more data). Weight ramps linearly from 0.1 (0 ratings) to 0.6 (≥ 50 ratings).
+- **Hybrid blending** — CF and CB scores are linearly blended for the main recommendation feed. The CF weight is adapted per-user based on rating count: new users get more CB weight (content signal is more reliable with sparse history), while experienced users get more CF weight (collaborative signal improves with more data). Weight ramps linearly from 0.1 (0 ratings) to 0.6 (≥ 5 ratings).
 - **MMR re-ranking** — Maximal Marginal Relevance applied to the hybrid scores to promote diversity in the recommendations.
 - **Menu-scan scoring** — when a user uploads a menu photo, beer names are extracted via Gemini vision and fuzzy-matched to the catalog; only the matched subset (~8–12 beers) is scored by slicing the CB feature matrix and CF latent factors directly, bypassing full 70k-beer scoring entirely. Results are ranked by the user's personal hybrid score.
 - **Cold-start (two-method onboarding)** — new users choose between Method 1 (search for known beers and rate them 1–5; minimum 3 ratings required) or Method 2 (rate the importance of taste/aroma/appearance/palate, pick an ABV preference, and select beer styles). Method 1 uses CB always and adds CF fold-in once ≥ 3 ratings are collected; Method 2 maps aspect importance levels to quantile targets in the numeric feature sub-space and blends with a style-cluster prior. Both produce a `pd.Series` of beer scores compatible with the hybrid pipeline downstream. Candidate generation for Method 2 and for any new user's ongoing CB-based recommendations caps representation to 5 beers per exact style, preventing one dominant style from filling the entire result set.
@@ -69,7 +69,7 @@ The system has three main layers: a React frontend, a FastAPI backend, and a pai
 
 - **VS Code + Claude** — used for both backend and frontend development.
 - **PowerShell / terminal** — used for running scripts, managing services, and testing API endpoints.
-- **pytest** — 138 unit tests (`test_pipelines.py`) and integration tests (`test_integration.py`).
+- **pytest** — 138 unit tests (`test_pipelines.py`), 27 integration tests (`test_integration.py`), and a dedicated suite for menu-matching (`test_menu.py`).
 
 &nbsp;<br>
 
@@ -81,7 +81,7 @@ The system has three main layers: a React frontend, a FastAPI backend, and a pai
 - **Milestone 4:** Created React based frontend for app using dummy data
 - **Milestone 5:** Built FastAPI backend with hybrid recommendation endpoint; 
 - **Milestone 6:** Created cold-start onboarding with two methods: beer-search-and-rate (Method 1, primary) and aspect-importance sliders with style chips (Method 2, fallback). New backend endpoints: `GET /beers/search`, `POST /onboarding/from-attributes`, `POST /onboarding/hybrid`.
-- **Milestone 7:** Improved React + Vite frontend Favorites, Discover, Top 50, and Adventurous tabs; added support for using real data and Demo Data toggle for standalone exploration.
+- **Milestone 7:** Improved React + Vite frontend Favorites, Discover, Top 50, and Adventurous tabs.
 - **Milestone 8:** Added MMR re-ranking for diversity, group recommendations endpoint, and CF weight tuning sweep.
 - **Milestone 9:** Added real-time feedback loop: immediate exclusion of rated beers, heuristic score adjustments, and SVD fold-in for live recommendation updates without retraining.
 - **Milestone 10:** Added Scan Menu feature — Gemini vision API extracts beer names from uploaded menu photos; rapidfuzz maps them to the catalog; a dedicated endpoint scores only the matched beers by slicing CB/CF matrices directly.
@@ -100,27 +100,30 @@ Hybrid CF/CB blending weights are evaluated separately via `py train_models.py -
 
 ## Main Features
 
-- **Personalised recommendation feed** — hybrid CF + CB swimlanes ("Top Matches", "You Might Also Like") on the Home tab, MMR-reranked for diversity. Users with no rating signal yet see a clearly-labeled "Popular Beers" list instead — the app never substitutes another user's personalized feed.
+- **Personalised recommendation feed** — hybrid CF + CB swimlanes ("Top Matches", "You Might Also Like") on the Home tab, with scaling weights based on how well we know the user, and MMR-reranked for diversity. Users with no rating signal yet see a clearly-labeled "Popular Beers" list instead.
 - **Cold-start onboarding** — new users choose between two methods: search for beers they know and rate them (Method 1, recommended, minimum 3 ratings), or rate the importance of taste/aroma/appearance/palate and select preferred styles (Method 2, guided fallback). Recommendations are available immediately after onboarding, before any further in-app interactions. Both methods persist the resulting ratings to the online store, so recommendations stay personalized (and diversified across beer styles) after a page refresh or backend restart.
 - **Real-time feedback loop** — rating a beer instantly removes it from feeds, applies score adjustments to similar beers, and triggers SVD fold-in so recommendations update live without retraining.
-- **Adventurous tab** — surfaces mid-range picks (positions 50–200 of the user's predicted ranking) that diverge from core taste, with a "Surprise Me Again" re-roll button.
+- **Adventurous tab** — surfaces picks that diverge from the user's core taste by randomly sampling the 60th–85th percentile band of their own predicted-score distribution, skipping both the safest top matches and the worst-fit beers; includes a "Surprise Me Again" button that re-samples the band for a fresh set.
 - **Top 50 tab** — community leaderboard sorted by average overall rating across all users.
-- **Group recommendations** — `GET /recommendations/group` generates hybrid recommendations for a set of users simultaneously.
-- **% Match badges** — every beer card displays a personalised hybrid score, a community average rating, or a rank badge depending on the tab.
+- **Anti-Recommender List** — the inverse of the personalized feed: beers the model predicts the user is least likely to enjoy, shown as a dedicated "what to avoid" tab.
+- **Share a Beer / Shared With Me** — from any beer's detail modal, a user can send that beer (with an optional note) directly to another registered user; recipients see it in a dedicated "Shared With Me" tab with an unread-count badge.
+- **Beer Lists** — user-curated, named/sectioned collections of beers that can be built up over time and revisited from the Discover menu.
+- **Group recommendations** — `GET /recommendations/group` generates hybrid, MMR-reranked recommendations for a set of users simultaneously. Implemented and working on the backend; not currently wired into the frontend UI (the Home tab's "Matching for…" party switcher only relabels the swimlane and does not call this endpoint).
+- **% Match badges** — every beer card shows two badges: a top-left badge with a rank, a personalised hybrid match %, or a "Catalog" placeholder for beers with no score yet (e.g. unmatched search results); and a top-right badge that always shows the beer's community average rating.
 - **Scan Menu** — upload a photo of a bar menu; Gemini vision extracts beer names, fuzzy matching maps them to the catalog, and the system returns only those beers ranked by the user's personal taste score. Appears as a "Scan Menu" button on the Home tab.
 - **Rubi's Daily Recommendation** — a highlighted hero card on the Home tab surfacing one standout beer pick, distinct from the "Top Matches" and "You Might Also Like" swimlanes below it. Reuses the existing hybrid recommendation feed (requests one extra beer beyond what's shown in the swimlanes) so the pick never duplicates a beer already visible on the page; clicking it opens the same beer detail modal used elsewhere in the app.
 - **Friend Compatibility** — on the Profile tab, compares a user's ratings against a set of demo friend personas and shows a taste-match percentage plus "Top Shared Favorites". The comparison is based on the user's full rating history rather than whatever's currently in their live recommendation feed, so the result stays stable as recommendations refresh.
-- **Build a 6 pack** - If the user or group don't want to choose beers themselves, The system can build a ready to order six pack of beers tailored to them.
+- **Build a 6-Pack** — generates a themed 6-pack from a random shuffle of the catalog (not currently personalised to the user's ratings or any recommendation model); lets the user add cosmetic "party member" names from a fixed demo-friend list and save the result into a named list. The "Order Delivery" step shows a confirmation message only — there is no real cart/order integration yet.
 - **AI assistant** - Allows users to ask free text questions about Rubeer to help them navigate and utilize the website
 
 ## Open Issues, Limitations, and Future Work
 
 - Convert website into app for use on phones for easier use on the go
 - Refine and improve LLM based features to achieve higher accuracy
-- Additional social features like inviting friends to a drink or finding users with similar tastes
+- Deeper social features beyond beer-sharing and Shared With Me — e.g. inviting friends to a drink, or automatically finding users with similar tastes
 
 &nbsp;<br>
 
 ## Additional Comments
 
-The decision to use sparse SVD (via scipy) rather than a dense matrix was critical for scaling to the full BeerAdvocate + RateBeer dataset (tens of thousands of users × beers). The Demo Data toggle proved very useful during frontend development, allowing UI work to proceed independently of backend availability. The `--tune-weights` flag in `train_models.py` provides a lightweight way to re-verify the optimal CF/CB blend after new data is added, without running a full grid search.
+The decision to use sparse SVD (via scipy) rather than a dense matrix was critical for scaling to the full BeerAdvocate + RateBeer dataset (tens of thousands of users × beers). The `--tune-weights` flag in `train_models.py` provides a lightweight way to re-verify the optimal CF/CB blend after new data is added, without running a full grid search.

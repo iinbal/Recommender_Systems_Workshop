@@ -3,11 +3,11 @@
 ## User Interface
 
 - **Technology:** React + Vite
-- **Responsibilities:** Display the beer recommendation dashboard; collect user interactions (ratings, onboarding inputs, search/filter inputs); manage local state for Favorites and rated beers; toggle between Demo Data and live backend mode.
+- **Responsibilities:** Display the beer recommendation dashboard; collect user interactions (ratings, onboarding inputs, search/filter inputs); manage local state for Favorites and rated beers.
 - **Interactions:**
   - Calls backend APIs via `src/services/apiService.js` (e.g. `/recommendations/{user_id}`, `/beers/top`, `/beers/search`, `/onboarding/from-attributes`, `/ratings`, `POST /recommendations/menu-upload`).
   - Receives JSON responses from the backend and renders beer cards, match badges, and swimlanes.
-- **More info:** Ships with bundled sample beers so the UI can be previewed without the backend running (Demo Data toggle). Registered users get their own recommendations tied to their real user ID; users with no rating signal yet (e.g. skipped onboarding) see an honest "Popular Beers" list instead — the app never substitutes another real user's personalized feed.
+- **More info:** Registered users get their own recommendations tied to their real user ID; users with no rating signal yet (e.g. skipped onboarding) see an honest "Popular Beers" list instead — the app never substitutes another real user's personalized feed. 
 - **Source code:** [`/frontend/src/`](./frontend/src/)
 
 ## Collaborative Filtering Pipeline
@@ -19,7 +19,7 @@
   - Loaded at server startup by `backend/api_server.py`.
   - Receives user rating vectors from the online store for fold-in.
   - Returns ranked beer score lists to the API server for hybrid blending.
-- **More info:** Operates entirely on sparse matrices to handle tens of thousands of users × beers. Falls back to a small synthetic dataset (`dummy_data.py`) if real CSVs are absent.
+- **More info:** Operates entirely on sparse matrices to handle tens of thousands of users × beers. Falls back to a small synthetic dataset ([`/dummy_data.py`](./dummy_data.py)) if real CSVs are absent.
 - **Source code:** [`/cf_pipeline.py`](./cf_pipeline.py)
 
 ## Content-Based Pipeline
@@ -32,6 +32,16 @@
   - Provides embeddings and similarity scores to the API server for hybrid blending and `/beers/similar/{beer_id}`.
 - **More info:** Updates recommendations continuously as the user rates beers. Falls back to a 5-beer in-memory mini catalog if real CSVs are absent. `cb_recommend_from_ratings` (used for any registered user without trained CF/CB history) caps candidates to 5 beers per exact `beer_style` before selecting the top-N, since averaging several rated beers into one profile vector can otherwise concentrate results on a single style. Beer names are HTML-entity-decoded once at load time to clean up scrape artifacts (e.g. `&#40;` → `(`).
 - **Source code:** [`/cb_pipeline.py`](./cb_pipeline.py)
+
+## Model Training Script
+
+- **Technology:** Python, scipy, scikit-learn
+- **Responsibilities:** Offline entry point that trains both the CF (sparse SVD) and CB (TF-IDF) pipelines from the `data/` CSV splits, evaluates per-k RMSE on validation/test sets for k ∈ {5, 10, 20, 50}, and writes all artifacts to `artifacts/`.
+- **Interactions:**
+  - Reads `data/train_set.csv`, `data/val_set.csv`, `data/test_set.csv`, `data/item_profiles_for_cold_start.csv`.
+  - Writes CF/CB artifacts consumed at startup by `backend/api_server.py`.
+- **More info:** `py train_models.py --tune-weights` separately sweeps hybrid CF weights `[0.3, 0.4, 0.5, 0.6, 0.7, 0.8]` and reports Hit Rate@10 on the validation set, without repeating the full SVD training.
+- **Source code:** [`/train_models.py`](./train_models.py)
 
 ## Cold-Start Module
 
@@ -63,7 +73,8 @@
 - **Interactions:**
   - Reads local JSON files (paths configured by the user).
   - Writes to the `recommend_db` PostgreSQL database.
-  - Outputs `data/train_set.csv`, `data/val_set.csv`, `data/test_set.csv`, and `data/item_profiles_for_cold_start.csv`.
+  - `data_processing/pipeline.py` writes `train_set_enriched.csv`, `val_set_enriched.csv`, `test_set_enriched.csv`, and `item_profiles_for_cold_start_enriched.csv` to the current working directory. These must be manually moved into a `data/` subdirectory and renamed to `train_set.csv`, `val_set.csv`, `test_set.csv`, and `item_profiles_for_cold_start.csv` — the plain names `cf_pipeline.py`, `cb_pipeline.py`, and `train_models.py` actually load.
+- **More info:** `data_processing/analyze.py` is a third script in this module — it connects to `recommend_db` (via its own separately hardcoded credentials) and runs EDA/VIF diagnostics with `statsmodels`, a dependency not currently listed in `install.md`.
 - **Source code:** [`/data_processing/`](./data_processing/)
 
 ## API Gateway / Backend Server
@@ -75,8 +86,17 @@
   - Loads CF and CB pipeline artifacts from `artifacts/` at startup.
   - Dispatches to the appropriate pipeline based on the endpoint called.
   - Returns JSON recommendation lists with beer metadata and match scores.
-- **More info:** Hybrid blending uses a per-user adaptive CF weight that ramps linearly from 0.1 (new users, no rating history) to 0.6 (experienced users, ≥ 50 ratings), computed at request time from the user's historical + session rating count. The upper bound `STANDARD_CF_WEIGHT = 0.6` is tunable via `py train_models.py --tune-weights`. Supports development (`fastapi dev`, auto-reload) and production (`fastapi run`) modes. `POST /recommendations/menu-upload` accepts a multipart menu image, orchestrates the vision and matcher modules, and scores only the matched beers without invoking the full recommendation pipeline. The main and anti-recommendation endpoints share the same new-user fallback: a registered user without trained CF/CB history is scored directly from their session ratings instead of 404ing.
+- **More info:** Hybrid blending uses a per-user adaptive CF weight that ramps linearly from 0.1 (new users, no rating history) to 0.6 (experienced users, ≥ 5 ratings), computed at request time from the user's historical + session rating count. The upper bound `STANDARD_CF_WEIGHT = 0.6` is tunable via `py train_models.py --tune-weights`. Supports development (`fastapi dev`, auto-reload) and production (`fastapi run`) modes. `POST /recommendations/menu-upload` accepts a multipart menu image, orchestrates the vision and matcher modules, and scores only the matched beers without invoking the full recommendation pipeline. The main and anti-recommendation endpoints share the same new-user fallback: a registered user without trained CF/CB history is scored directly from their session ratings instead of 404ing.
 - **Source code:** [`/backend/api_server.py`](./backend/api_server.py)
+
+## AI Assistant (Stav)
+
+- **Technology:** Google Gemini text API (`google-genai` SDK, model `gemini-2.5-flash`)
+- **Responsibilities:** Answers free-text user questions about navigating and using the RuBeer site, grounded with a short RAG-style context built from the user's top-5 rated beers.
+- **Interactions:**
+  - Exposed via `POST /api/chat` in `backend/api_server.py`, called by `frontend/src/components/StavAssistant.jsx`.
+  - Falls back to a canned error string if the Gemini call fails.
+- **Source code:** [`/backend/api_server.py`](./backend/api_server.py) (`chat_with_Stav`), [`/frontend/src/components/StavAssistant.jsx`](./frontend/src/components/StavAssistant.jsx)
 
 ## Menu Vision Module
 

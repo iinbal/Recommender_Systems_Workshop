@@ -53,7 +53,7 @@ A search-driven catalog browser (`DiscoverPage`) for finding any beer in the dat
 ### Build a 6-Pack
 Generates curated 6-packs of beer recommendations tailored to your personal taste, or the shared preferences of you and your friends. You can choose exactly how many 6-packs to generate at once, and save them all into named, organized lists for later.
 
-![Build a 6-Pack](Images/sixpack.jpeg)
+![Build a 6-Pack](Images/sixpack.jpg)
 
 ### Share a Beer
 From the beer detail modal, a user can send a specific beer, with an optional note, directly to another registered user — it then shows up in that user's "Shared With Me" inbox.

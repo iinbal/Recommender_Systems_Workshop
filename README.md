@@ -43,7 +43,7 @@ The main dashboard after login. Features Rubi's Daily Recommendation hero card p
 ### Beer Card 
 The beer detail modal, opened from any card in the app. Shows the personalized match score, lets the user rate and review the beer, surfaces similar beers, and includes the "Share this beer" action.
 
-![Beer card](Images/inspectbeer.jpg)
+![Beer card](Images/inspectbeer.JPG)
 
 ### Explore
 A search-driven catalog browser (`DiscoverPage`) for finding any beer in the dataset by name, independent of personalized recommendations — useful for looking up a specific beer rather than browsing suggestions.
